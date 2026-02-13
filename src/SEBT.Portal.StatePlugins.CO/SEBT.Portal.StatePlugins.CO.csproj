@@ -20,7 +20,11 @@
 
     <ItemGroup>
         <PackageReference Include="SEBT.Portal.StatesPlugins.Interfaces" Version="0.0.1-*" />
-        <PackageReference Include="System.Composition" Version="10.0.1"/>
+        <PackageReference Include="System.Composition" Version="10.0.1" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <ProjectReference Include="..\SEBT.Portal.StatePlugins.CO.CbmsApi\SEBT.Portal.StatePlugins.CO.CbmsApi.csproj" />
     </ItemGroup>
 
     <Target Name="CopyPlugins" AfterTargets="Build">
