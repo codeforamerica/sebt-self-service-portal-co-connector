@@ -1,6 +1,6 @@
 {
   "descriptionHash": "795572B763474169FB69C2E20592DEE94FD2EAF51266BECEED5C18B97A285E5462C461BBD42FEA9462488A1061B3F75FA664AFF3E26720BAA2F96091330624CB",
-  "descriptionLocation": "../cbms-api/api-spec.yaml",
+  "descriptionLocation": "openapi/api-spec.yaml",
   "lockFileVersion": "1.0.0",
   "kiotaVersion": "1.30.0",
   "clientClassName": "CbmsSebtApiClient",

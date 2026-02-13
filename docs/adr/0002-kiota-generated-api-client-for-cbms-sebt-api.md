@@ -30,7 +30,7 @@ The CBMS API's OpenAPI spec uses generic, auto-generated schema names (`type`, `
 
 ## Decision
 
-We use **Kiota** to generate a strongly-typed C# API client, preceded by a **spec transformation pipeline** that produces a clean OpenAPI spec from the raw CBMS spec. The pipeline lives in `src/cbms-api/` and works as follows:
+We use **Kiota** to generate a strongly-typed C# API client, preceded by a **spec transformation pipeline** that produces a clean OpenAPI spec from the raw CBMS spec. The pipeline lives in the `openapi/` directory within the generated client project (`src/SEBT.Portal.StatePlugins.CO.CbmsApi/openapi/`) and works as follows:
 
 1. **`transform-spec.sh`** runs `transform_spec.py`, which reads `api-spec.original.yaml` and writes `api-spec.yaml` with two categories of changes:
    - **Schema renames** — Maps generic names to descriptive ones (e.g., `type` → `CheckEnrollmentRequest`, `type_1` → `CheckEnrollmentResponse`).
