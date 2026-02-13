@@ -95,6 +95,10 @@ public class GetAccountDetailsSerializationTests
         Assert.Equal(120.5d, student.CardBal);
         Assert.Equal("C8887727", student.CbmsCsId);
         Assert.Equal("SNAP", student.DircEligSrc);
+
+        // Unmapped fields land in AdditionalData — fail if the spec adds new attributes
+        Assert.Empty(result.AdditionalData);
+        Assert.Empty(student.AdditionalData);
     }
 
     [Fact]

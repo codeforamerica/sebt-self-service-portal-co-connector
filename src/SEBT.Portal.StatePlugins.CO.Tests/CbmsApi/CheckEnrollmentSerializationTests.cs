@@ -49,6 +49,10 @@ public class CheckEnrollmentSerializationTests
         Assert.Equal("APP12345", student.SebtAppId);
         Assert.Equal("CHLD9876", student.SebtChldId);
         Assert.Equal("REQ-001", student.StdReqInd);
+
+        // Unmapped fields land in AdditionalData — fail if the spec adds new attributes
+        Assert.Empty(result.AdditionalData);
+        Assert.Empty(student.AdditionalData);
     }
 
     [Fact]

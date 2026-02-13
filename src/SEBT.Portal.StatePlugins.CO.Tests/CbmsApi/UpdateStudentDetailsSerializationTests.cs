@@ -25,6 +25,9 @@ public class UpdateStudentDetailsSerializationTests
         Assert.NotNull(result);
         Assert.Equal("200", result.RespCd);
         Assert.Equal("Success", result.RespMsg);
+
+        // Unmapped fields land in AdditionalData — fail if the spec adds new attributes
+        Assert.Empty(result.AdditionalData);
     }
 
     [Fact]

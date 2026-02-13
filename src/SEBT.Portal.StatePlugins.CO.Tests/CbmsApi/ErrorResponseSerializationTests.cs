@@ -36,5 +36,9 @@ public class ErrorResponseSerializationTests
         var error = Assert.Single(result.ErrorDetails);
         Assert.Equal("404", error.Code);
         Assert.Equal("Not Found", error.Message);
+
+        // Unmapped fields land in AdditionalData — fail if the spec adds new attributes
+        Assert.Empty(result.AdditionalData);
+        Assert.Empty(error.AdditionalData);
     }
 }
