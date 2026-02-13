@@ -30,14 +30,14 @@ SCHEMA_RENAMES = [
 
 # --- Step 2: Extract inline nested objects into top-level schemas ---
 
-# Each entry: (parent_property_name, indentation_of_items, new_schema_name, is_array_items)
+# Each entry: (parent_property_name, new_schema_name, is_array_items)
 # is_array_items=True  means the inline object is under "items:" of an array property
 # is_array_items=False means the inline object IS the property value directly
 EXTRACTIONS = [
-    ("stdntDtls",      10, "CheckEnrollmentStudentDetail", True),
-    ("errorDetails",   10, "ErrorDetail",                  True),
-    ("stdntEnrollDtls", 10, "GetAccountStudentDetail",      True),
-    ("addr",           8,  "Address",                      False),
+    ("stdntDtls",       "CheckEnrollmentStudentDetail", True),
+    ("errorDetails",    "ErrorDetail",                  True),
+    ("stdntEnrollDtls", "GetAccountStudentDetail",      True),
+    ("addr",            "Address",                      False),
 ]
 
 
@@ -72,8 +72,32 @@ def find_block_end(all_lines, start_idx, base_indent):
     return len(all_lines)
 
 
-def extract_inline_to_ref(all_lines, prop_name, items_indent, new_schema_name, is_array_items):
-    """Replace an inline object definition with a $ref and return the extracted schema lines."""
+def _get_indent(line):
+    """Return the number of leading spaces in a line."""
+    stripped = line.rstrip("\n")
+    return len(stripped) - len(stripped.lstrip())
+
+
+def _extract_properties_block(all_lines, i, extracted_properties):
+    """Extract a 'properties:' block into extracted_properties list, returning the new line index."""
+    props_indent = _get_indent(all_lines[i])
+    i += 1  # skip "properties:" line
+    block_end = find_block_end(all_lines, i - 1, props_indent)
+    for j in range(i, block_end):
+        raw = all_lines[j].rstrip("\n")
+        if raw.strip() == "":
+            continue
+        current_indent = len(raw) - len(raw.lstrip())
+        new_indent = current_indent - props_indent + 6
+        extracted_properties.append(" " * max(new_indent, 0) + raw.lstrip() + "\n")
+    return block_end
+
+
+def extract_inline_to_ref(all_lines, prop_name, new_schema_name, is_array_items):
+    """Replace an inline object definition with a $ref and return the extracted schema lines.
+
+    Matches by property name and structural context (type: array/object, items:, properties:)
+    rather than hard-coded indentation, so this works regardless of nesting depth."""
     extracted_properties = []
     result_lines = []
     i = 0
@@ -81,23 +105,23 @@ def extract_inline_to_ref(all_lines, prop_name, items_indent, new_schema_name, i
     while i < len(all_lines):
         stripped = all_lines[i].rstrip("\n").rstrip()
 
-        if is_array_items:
-            # Look for: "          items:" followed by "            type: object"
-            # under a property named prop_name
-            prop_pattern = f"{' ' * (items_indent - 2)}{prop_name}:"
-            if stripped == prop_pattern or stripped.startswith(prop_pattern + " "):
-                # Found the array property line. Next should be "type: array", then "items:"
+        # Match "propName:" at any indentation
+        if re.match(rf"^\s+{re.escape(prop_name)}:\s*$", stripped) or \
+           re.match(rf"^\s+{re.escape(prop_name)}: ", stripped):
+
+            if is_array_items:
+                # Expect: prop_name: → type: array → items: → type: object → properties:
                 result_lines.append(all_lines[i])
                 i += 1
                 # Copy "type: array" line
                 if i < len(all_lines) and "type: array" in all_lines[i]:
                     result_lines.append(all_lines[i])
                     i += 1
+                else:
+                    continue
                 # Now expect "items:" line
                 if i < len(all_lines) and "items:" in all_lines[i]:
-                    items_line_indent = len(all_lines[i].rstrip("\n")) - len(all_lines[i].rstrip("\n").lstrip())
-                    # Replace "items:\n            type: object\n            properties:\n..."
-                    # with "items:\n              $ref: ..."
+                    items_line_indent = _get_indent(all_lines[i])
                     ref_indent = " " * (items_line_indent + 2)
                     result_lines.append(f"{' ' * items_line_indent}items:\n")
                     result_lines.append(f'{ref_indent}$ref: "#/components/schemas/{new_schema_name}"\n')
@@ -107,45 +131,19 @@ def extract_inline_to_ref(all_lines, prop_name, items_indent, new_schema_name, i
                         i += 1
                     # Now find and extract the properties block
                     if i < len(all_lines) and "properties:" in all_lines[i]:
-                        props_indent = len(all_lines[i].rstrip("\n")) - len(all_lines[i].rstrip("\n").lstrip())
-                        i += 1  # skip "properties:" line
-                        block_end = find_block_end(all_lines, i - 1, props_indent)
-                        # Collect property lines, de-indented to top-level schema format
-                        for j in range(i, block_end):
-                            raw = all_lines[j].rstrip("\n")
-                            if raw.strip() == "":
-                                continue
-                            current_indent = len(raw) - len(raw.lstrip())
-                            new_indent = current_indent - props_indent + 6
-                            extracted_properties.append(" " * max(new_indent, 0) + raw.lstrip() + "\n")
-                        i = block_end
+                        i = _extract_properties_block(all_lines, i, extracted_properties)
                         continue
                 continue
-        else:
-            # Direct object property (not array items)
-            prop_pattern = f"{' ' * (items_indent)}{prop_name}:"
-            if stripped == prop_pattern or stripped.startswith(prop_pattern + " "):
-                prop_line_indent = len(all_lines[i].rstrip("\n")) - len(all_lines[i].rstrip("\n").lstrip())
-                # Check next line for "type: object"
+            else:
+                # Direct object property: prop_name: → type: object → properties:
+                prop_line_indent = _get_indent(all_lines[i])
                 if i + 1 < len(all_lines) and "type: object" in all_lines[i + 1]:
                     ref_indent = " " * (prop_line_indent + 2)
                     result_lines.append(f"{' ' * prop_line_indent}{prop_name}:\n")
                     result_lines.append(f'{ref_indent}$ref: "#/components/schemas/{new_schema_name}"\n')
-                    i += 1  # skip the prop_name line (already written)
-                    i += 1  # skip "type: object"
-                    # Skip "properties:" and extract its children
+                    i += 2  # skip prop_name line (already written) and "type: object"
                     if i < len(all_lines) and "properties:" in all_lines[i]:
-                        props_indent = len(all_lines[i].rstrip("\n")) - len(all_lines[i].rstrip("\n").lstrip())
-                        i += 1  # skip "properties:"
-                        block_end = find_block_end(all_lines, i - 1, props_indent)
-                        for j in range(i, block_end):
-                            raw = all_lines[j].rstrip("\n")
-                            if raw.strip() == "":
-                                continue
-                            current_indent = len(raw) - len(raw.lstrip())
-                            new_indent = current_indent - props_indent + 6
-                            extracted_properties.append(" " * max(new_indent, 0) + raw.lstrip() + "\n")
-                        i = block_end
+                        i = _extract_properties_block(all_lines, i, extracted_properties)
                         continue
                     continue
 
@@ -186,8 +184,8 @@ def main():
 
     # Apply extractions one at a time, collecting the extracted schemas
     extracted_schemas = {}
-    for prop_name, indent, schema_name, is_array in EXTRACTIONS:
-        lines, props = extract_inline_to_ref(lines, prop_name, indent, schema_name, is_array)
+    for prop_name, schema_name, is_array in EXTRACTIONS:
+        lines, props = extract_inline_to_ref(lines, prop_name, schema_name, is_array)
         if props:
             extracted_schemas[schema_name] = props
 
