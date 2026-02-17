@@ -1,18 +1,65 @@
 # SEBT.Portal.StatePlugins.CO.CbmsApi
 
-Kiota-generated C# client for the Colorado CBMS SEBT API. This project provides strongly-typed request/response models and request builders for three API endpoints:
+Kiota-generated C# client for the Colorado CBMS SEBT API. This project provides strongly-typed request/response models and request builders for four API endpoints:
 
+- **Ping** — Health check to verify the CBMS API is reachable
 - **Check Enrollment** — Look up student enrollment eligibility
 - **Get Account Details** — Retrieve household and student details by phone number
 - **Update Student Details** — Update address, guardian info, and notification preferences
 
 ## Setup
 
-The client requires an `IRequestAdapter`, typically built from an `HttpClient`:
+The CBMS API uses OAuth 2.0 client credentials for authentication. Kiota's `BaseBearerTokenAuthenticationProvider` handles adding the `Authorization: Bearer {token}` header to each request — you provide the token acquisition logic by implementing `IAccessTokenProvider`.
+
+### 1. Implement `IAccessTokenProvider`
+
+`IAccessTokenProvider` is the Kiota interface for token acquisition:
 
 ```csharp
+public interface IAccessTokenProvider
+{
+    Task<string> GetAuthorizationTokenAsync(
+        Uri uri,
+        Dictionary<string, object>? additionalAuthenticationContext = default,
+        CancellationToken cancellationToken = default);
+
+    AllowedHostsValidator AllowedHostsValidator { get; }
+}
+```
+
+Create an implementation that obtains an OAuth client credentials token from the CBMS token endpoint:
+
+```csharp
+using Microsoft.Kiota.Abstractions.Authentication;
+
+public class CbmsAccessTokenProvider : IAccessTokenProvider
+{
+    public AllowedHostsValidator AllowedHostsValidator { get; } = new();
+
+    public async Task<string> GetAuthorizationTokenAsync(
+        Uri uri,
+        Dictionary<string, object>? additionalAuthenticationContext = default,
+        CancellationToken cancellationToken = default)
+    {
+        // TODO: Acquire an OAuth 2.0 client credentials token from the
+        // CBMS token endpoint using the configured client ID and secret.
+        // Cache/refresh the token as appropriate.
+        throw new NotImplementedException();
+    }
+}
+```
+
+### 2. Wire up the client
+
+Pass the token provider through `BaseBearerTokenAuthenticationProvider` into the request adapter:
+
+```csharp
+using Microsoft.Kiota.Abstractions.Authentication;
 using Microsoft.Kiota.Http.HttpClientLibrary;
 using SEBT.Portal.StatePlugins.CO.CbmsApi;
+
+var tokenProvider = new CbmsAccessTokenProvider(/* client ID, secret, token endpoint */);
+var authProvider = new BaseBearerTokenAuthenticationProvider(tokenProvider);
 
 var httpClient = new HttpClient
 {
@@ -22,9 +69,17 @@ var adapter = new HttpClientRequestAdapter(authProvider, httpClient: httpClient)
 var client = new CbmsSebtApiClient(adapter);
 ```
 
-The `authProvider` parameter implements `IAuthenticationProvider` from Kiota. For APIs requiring bearer tokens or API keys, see [Kiota authentication providers](https://learn.microsoft.com/en-us/openapi/kiota/authentication).
+All types above (`IAccessTokenProvider`, `BaseBearerTokenAuthenticationProvider`, `HttpClientRequestAdapter`) are included in the `Microsoft.Kiota.Bundle` package — no extra dependencies needed.
 
 ## Usage
+
+### Ping
+
+```csharp
+UntypedNode? result = await client.Ping.GetAsync();
+```
+
+Returns an `UntypedNode?` — the response shape is unspecified in the OpenAPI spec. This endpoint is useful for health checks to verify the CBMS API is reachable.
 
 ### Check Enrollment
 
