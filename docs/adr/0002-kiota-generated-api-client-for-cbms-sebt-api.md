@@ -8,7 +8,7 @@ Accepted
 
 ## Context
 
-The Colorado connector integrates with CDHS's CBMS SEBT API — a REST API for checking enrollment, retrieving account details, and updating student information. We need a typed HTTP client in C# to call this API.
+The Colorado connector integrates with CDHS's CBMS SEBT API — a REST API for checking enrollment, retrieving account details, and updating student information. We would like a typed HTTP client in C# to call this API.
 
 The CBMS API's OpenAPI spec uses generic, auto-generated schema names (`type`, `type_1`, `type_2`, etc.) and defines nested objects inline rather than as reusable schemas. Generating a client directly from this spec would produce C# classes named `Type`, `Type1`, `Type2` — unusable from a readability and maintainability standpoint.
 
@@ -19,11 +19,7 @@ The CBMS API's OpenAPI spec uses generic, auto-generated schema names (`type`, `
    - No tooling dependencies.
    - Tedious to maintain as the API evolves; easy for the code to drift from the spec without anyone noticing.
 
-2. **NSwag** — A mature .NET-native OpenAPI client generator.
-   - Strong .NET ecosystem integration.
-   - Less flexible spec transformation pipeline; the generic schema naming issue would still need a workaround.
-
-3. **Kiota with spec transformation** — Use Microsoft's [Kiota](https://learn.microsoft.com/en-us/openapi/kiota/) code generator, preceded by a transformation step that renames schemas and extracts inline objects into top-level definitions.
+2. **Kiota with spec transformation** — Use Microsoft's [Kiota](https://learn.microsoft.com/en-us/openapi/kiota/) code generator, preceded by a transformation step that renames schemas and extracts inline objects into top-level definitions.
    - Generated client stays in sync with the spec by design.
    - Transformation pipeline makes the generated code readable despite the spec's generic naming.
    - Kiota is Microsoft's recommended approach for OpenAPI client generation in .NET.
