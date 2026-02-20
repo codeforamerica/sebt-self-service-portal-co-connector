@@ -12,7 +12,7 @@ public class ColoradoSummerEbtCaseService : ISummerEbtCaseService
     public Task<HouseholdData?> GetHouseholdByGuardianEmailAsync(
         string guardianEmail,
         PiiVisibility piiVisibility,
-        IdentityAssuranceLevel ial,
+        IdentityAssuranceLevel identityAssuranceLevel,
         CancellationToken cancellationToken = default)
     {
         throw ThrowHelper.CreateColoradoNotImplementedException();

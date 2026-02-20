@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
         <TargetFramework>net10.0</TargetFramework>
@@ -19,12 +19,15 @@
     </PropertyGroup>
 
     <ItemGroup>
+        <PackageReference Include="Microsoft.IdentityModel.JsonWebTokens" Version="8.2.1" />
+        <PackageReference Include="Microsoft.IdentityModel.Protocols.OpenIdConnect" Version="8.2.1" />
+        <PackageReference Include="Microsoft.IdentityModel.Tokens" Version="8.2.1" />
         <PackageReference Include="SEBT.Portal.StatesPlugins.Interfaces" Version="0.0.1-*" />
         <PackageReference Include="System.Composition" Version="10.0.1" />
     </ItemGroup>
 
     <ItemGroup>
-      <ProjectReference Include="..\SEBT.Portal.StatePlugins.CO.CbmsApi\SEBT.Portal.StatePlugins.CO.CbmsApi.csproj" />
+        <ProjectReference Include="..\SEBT.Portal.StatePlugins.CO.CbmsApi\SEBT.Portal.StatePlugins.CO.CbmsApi.csproj" />
     </ItemGroup>
 
     <Target Name="CopyPlugins" AfterTargets="Build">

@@ -5,18 +5,13 @@ namespace SEBT.Portal.StatePlugins.CO.Tests;
 public class ColoradoSummerEbtCaseServiceTests
 {
     [Fact]
-    public async Task GetHouseholdByGuardianEmailAsync()
+    public async Task GetHouseholdByGuardianEmailAsync_throws_NotImplementedException()
     {
-        // Arrange
         var service = new ColoradoSummerEbtCaseService();
-        var piiVisibility = new PiiVisibility(false, false, false);
+        var piiVisibility = new PiiVisibility(IncludeAddress: false, IncludeEmail: false, IncludePhone: false);
 
-        // Act/Assert
         var ex = await Assert.ThrowsAsync<NotImplementedException>(async () =>
-            await service.GetHouseholdByGuardianEmailAsync(
-                "test@example.com",
-                piiVisibility,
-                IdentityAssuranceLevel.IAL1));
+            await service.GetHouseholdByGuardianEmailAsync("test@example.com", piiVisibility, IdentityAssuranceLevel.None));
 
         Assert.Contains("Colorado", ex.Message);
     }

@@ -11,6 +11,9 @@
 *.sln.docstates
 *.env
 
+# MyColorado OIDC Test Host – local secrets (ClientId/ClientSecret)
+src/MyColoradoOidc.TestHost/appsettings.Development.json
+
 # User-specific files (MonoDevelop/Xamarin Studio)
 *.userprefs
 
