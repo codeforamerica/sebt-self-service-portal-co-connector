@@ -20,6 +20,7 @@
 
     <ItemGroup>
       <ProjectReference Include="..\SEBT.Portal.StatePlugins.CO\SEBT.Portal.StatePlugins.CO.csproj" />
+      <ProjectReference Include="..\SEBT.Portal.StatePlugins.CO.CbmsApi\SEBT.Portal.StatePlugins.CO.CbmsApi.csproj" />
     </ItemGroup>
 
 </Project>
