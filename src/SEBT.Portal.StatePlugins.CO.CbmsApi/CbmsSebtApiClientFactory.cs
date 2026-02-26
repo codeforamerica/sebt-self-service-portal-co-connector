@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using Microsoft.Kiota.Abstractions.Authentication;
 using Microsoft.Kiota.Http.HttpClientLibrary;
 
@@ -14,6 +15,11 @@ public static class CbmsSebtApiClientFactory
     {
         PooledConnectionLifetime = TimeSpan.FromMinutes(2),
     });
+    
+    private static readonly Lazy<HttpClient> TokenHttpClient = new(() => 
+        new HttpClient(SharedHandler.Value, disposeHandler: false));
+    
+    private static readonly ConcurrentDictionary<Uri, HttpClient> HttpClients = new();
 
     /// <summary>
     /// Creates a client configured for the specified CBMS environment.
@@ -29,16 +35,17 @@ public static class CbmsSebtApiClientFactory
         string apiBaseUrl,
         string tokenEndpointUrl)
     {
-        var tokenHttpClient = new HttpClient(SharedHandler.Value, disposeHandler: false);
         var tokenProvider = new ClientCredentialsTokenProvider(
-            tokenHttpClient, clientId, clientSecret, tokenEndpointUrl);
+            TokenHttpClient.Value, clientId, clientSecret, tokenEndpointUrl);
 
         var authProvider = new BaseBearerTokenAuthenticationProvider(tokenProvider);
 
-        var apiHttpClient = new HttpClient(SharedHandler.Value, disposeHandler: false)
-        {
-            BaseAddress = new Uri(apiBaseUrl),
-        };
+        var baseAddress = new Uri(apiBaseUrl);
+        var apiHttpClient = HttpClients.GetOrAdd(baseAddress, uri =>
+            new HttpClient(SharedHandler.Value, disposeHandler: false)
+            {
+                BaseAddress = uri
+            });
         var adapter = new HttpClientRequestAdapter(authProvider, httpClient: apiHttpClient);
 
         return new CbmsSebtApiClient(adapter);

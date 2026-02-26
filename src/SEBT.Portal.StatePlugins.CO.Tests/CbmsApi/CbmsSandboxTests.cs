@@ -60,7 +60,7 @@ public class CbmsSandboxTests(CbmsSandboxFixture fixture)
 
         var request = new GetAccountDetailsRequest
         {
-            PhnNm = "3035550199",
+            PhnNm = "8185558437",
         };
 
         var response = await fixture.Client!.Sebt.GetAccountDetails.PostAsync(request);
