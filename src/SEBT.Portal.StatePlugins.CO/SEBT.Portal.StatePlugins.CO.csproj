@@ -11,6 +11,9 @@
         <HomeDir Condition="'$(HomeDir)' == ''">$(HOME)</HomeDir>
 
         <RestoreAdditionalProjectSources>$(HomeDir)/nuget-store</RestoreAdditionalProjectSources>
+
+        <!-- Path to Interfaces in sibling repo; used to prefer project over package when present -->
+        <InterfacesProjectPath>$(MSBuildProjectDirectory)/../../../sebt-self-service-portal-state-connector/src/SEBT.Portal.StatesPlugins.Interfaces/SEBT.Portal.StatesPlugins.Interfaces.csproj</InterfacesProjectPath>
     </PropertyGroup>
 
     <PropertyGroup Condition="'$(Configuration)' == 'Debug'">
@@ -22,12 +25,15 @@
         <PackageReference Include="Microsoft.IdentityModel.JsonWebTokens" Version="8.2.1" />
         <PackageReference Include="Microsoft.IdentityModel.Protocols.OpenIdConnect" Version="8.2.1" />
         <PackageReference Include="Microsoft.IdentityModel.Tokens" Version="8.2.1" />
-        <PackageReference Include="SEBT.Portal.StatesPlugins.Interfaces" Version="0.0.1-*" />
         <PackageReference Include="System.Composition" Version="10.0.1" />
+        <!-- Use package only when sibling Interfaces project is not present -->
+        <PackageReference Include="SEBT.Portal.StatesPlugins.Interfaces" Version="0.0.1-*" Condition="!Exists('$(InterfacesProjectPath)')" />
     </ItemGroup>
 
     <ItemGroup>
         <ProjectReference Include="..\SEBT.Portal.StatePlugins.CO.CbmsApi\SEBT.Portal.StatePlugins.CO.CbmsApi.csproj" />
+        <!-- Use sibling Interfaces project when present; otherwise PackageReference above is used -->
+        <ProjectReference Include="..\..\..\sebt-self-service-portal-state-connector\src\SEBT.Portal.StatesPlugins.Interfaces\SEBT.Portal.StatesPlugins.Interfaces.csproj" Condition="Exists('$(InterfacesProjectPath)')" />
     </ItemGroup>
 
     <Target Name="CopyPlugins" AfterTargets="Build">
