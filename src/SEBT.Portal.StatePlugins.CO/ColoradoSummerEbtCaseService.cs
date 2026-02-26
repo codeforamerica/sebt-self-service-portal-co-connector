@@ -1,6 +1,7 @@
 using System.Composition;
 using SEBT.Portal.StatesPlugins.Interfaces;
-using SEBT.Portal.StatesPlugins.Interfaces.Data.Cases;
+using SEBT.Portal.StatesPlugins.Interfaces.Models;
+using SEBT.Portal.StatesPlugins.Interfaces.Models.Household;
 
 namespace SEBT.Portal.StatePlugins.CO;
 
@@ -8,7 +9,11 @@ namespace SEBT.Portal.StatePlugins.CO;
 [ExportMetadata("StateCode", "CO")]
 public class ColoradoSummerEbtCaseService : ISummerEbtCaseService
 {
-    public Task<IList<SummerEbtCase>> GetHouseholdCases()
+    public Task<HouseholdData?> GetHouseholdByGuardianEmailAsync(
+        string guardianEmail,
+        PiiVisibility piiVisibility,
+        IdentityAssuranceLevel ial,
+        CancellationToken cancellationToken = default)
     {
         throw ThrowHelper.CreateColoradoNotImplementedException();
     }
