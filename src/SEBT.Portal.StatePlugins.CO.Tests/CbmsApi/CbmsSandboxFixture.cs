@@ -45,7 +45,11 @@ public class CbmsSandboxFixture : IAsyncLifetime
         }
 
         CredentialsConfigured = true;
-        Client = CbmsSebtApiClientFactory.CreateSandbox(clientId, clientSecret);
+        Client = CbmsSebtApiClientFactory.Create(
+            clientId,
+            clientSecret,
+            CbmsDefaults.SandboxApiBaseUrl,
+            CbmsDefaults.SandboxTokenEndpointUrl);
 
         return Task.CompletedTask;
     }
