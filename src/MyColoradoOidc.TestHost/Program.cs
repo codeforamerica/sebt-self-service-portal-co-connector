@@ -15,9 +15,9 @@ if (!enableTestHost)
         "MyColoradoOidc.TestHost is disabled. Set TestHost:Enabled=true in configuration (e.g. appsettings.Development.json) to run.");
 }
 
-var myColoradoSection = builder.Configuration.GetSection("MyColorado");
-var options = new MyColoradoOidcOptions();
-myColoradoSection.Bind(options);
+// Use same config shape as portal: Oidc:co (ClientId, DiscoveryEndpoint).
+var oidcCoSection = builder.Configuration.GetSection("Oidc").GetSection("co");
+var options = oidcCoSection.Get<MyColoradoOidcOptions>() ?? new MyColoradoOidcOptions();
 
 builder.Services.AddSingleton(options);
 builder.Services.AddHttpClient<MyColoradoOidcService>();
