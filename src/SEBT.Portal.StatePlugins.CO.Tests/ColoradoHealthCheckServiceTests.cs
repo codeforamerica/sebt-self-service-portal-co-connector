@@ -1,21 +1,21 @@
-using SEBT.Portal.StatesPlugins.Interfaces.Data;
+using Microsoft.Extensions.Diagnostics.HealthChecks;
 
 namespace SEBT.Portal.StatePlugins.CO.Tests;
 
 public class ColoradoHealthCheckServiceTests
 {
     [Fact]
-    public async Task CheckHealthAsync_ReturnsUnhealthy_WhenCredentialsNotConfigured()
+    public async Task AlwaysUnhealthyHealthCheck_ReturnsUnhealthy_WithGivenMessage()
     {
         // Arrange
-        var service = new ColoradoHealthCheckService();
+        var message = "CBMS credentials are not configured.";
+        var check = new AlwaysUnhealthyHealthCheck(message);
 
         // Act
-        var result = await service.CheckHealthAsync();
+        var result = await check.CheckHealthAsync(new HealthCheckContext());
 
         // Assert
-        Assert.False(result.IsHealthy);
-        var unhealthy = Assert.IsType<HealthCheckResult.Unhealthy>(result);
-        Assert.Contains("credentials are not configured", unhealthy.ErrorMessage);
+        Assert.Equal(HealthStatus.Unhealthy, result.Status);
+        Assert.Equal(message, result.Description);
     }
 }
