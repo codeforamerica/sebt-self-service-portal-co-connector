@@ -22,8 +22,10 @@ public class ColoradoOidcLoginService : IStateOidcLoginService
     [ImportingConstructor]
     public ColoradoOidcLoginService([Import] IConfiguration configuration)
     {
+        // Portal config is under Oidc:co (e.g. Oidc:co:ClientId, Oidc:co:DiscoveryEndpoint).
         var options = configuration
-            .GetSection("MyColorado")
+            .GetSection("Oidc")
+            .GetSection("co")
             .Get<MyColoradoOidcOptions>() ?? new MyColoradoOidcOptions();
         var httpClient = new HttpClient();
         _oidcService = new MyColoradoOidcService(options, httpClient);
