@@ -87,4 +87,7 @@ jobs:
         run: dotnet build --no-restore -c Release
 
       - name: Test
+        env:
+          Cbms__SandboxClientId: ${{ secrets.CBMS_SANDBOX_CLIENT_ID }}
+          Cbms__SandboxClientSecret: ${{ secrets.CBMS_SANDBOX_CLIENT_SECRET }}
         run: dotnet test --no-build -c Release
