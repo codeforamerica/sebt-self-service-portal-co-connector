@@ -16,8 +16,8 @@ public class ColoradoSummerEbtCaseService : ISummerEbtCaseService
     }
 
     public Task<HouseholdData?> GetHouseholdByGuardianEmailAsync(
-        string guardianEmail, 
-        PiiVisibility piiVisibility, 
+        string guardianEmail,
+        PiiVisibility piiVisibility,
         IdentityAssuranceLevel ial,
         CancellationToken cancellationToken = default)
     {
