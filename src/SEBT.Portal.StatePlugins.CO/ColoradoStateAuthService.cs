@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using System.Composition;
 using SEBT.Portal.StatesPlugins.Interfaces;
 using SEBT.Portal.StatesPlugins.Interfaces.Models;
@@ -5,33 +6,39 @@ using SEBT.Portal.StatesPlugins.Interfaces.Models;
 namespace SEBT.Portal.StatePlugins.CO;
 
 /// <summary>
-/// Returns the state auth context (MyColorado IdP tokens) for the current request session
-/// by reading from the portal's <see cref="IStateAuthStore"/> using the session id from the cookie.
+/// Returns IdP-derived claims (e.g. MyColorado phone, name) from the current user's claims.
+/// The portal JWT includes these at OIDC complete-login; this implementation reads from
+/// the <see cref="ClaimsPrincipal"/> passed by the host.
 /// </summary>
 [Export(typeof(IStatePlugin))]
 [Export(typeof(IStateAuthService))]
 [ExportMetadata("StateCode", "CO")]
 public class ColoradoStateAuthService : IStateAuthService
 {
-    private readonly IStateAuthStore _store;
-    private readonly IStateAuthSessionAccessor _sessionAccessor;
-
-    [ImportingConstructor]
-    public ColoradoStateAuthService(
-        [Import] IStateAuthStore store,
-        [Import] IStateAuthSessionAccessor sessionAccessor)
-    {
-        _store = store ?? throw new ArgumentNullException(nameof(store));
-        _sessionAccessor = sessionAccessor ?? throw new ArgumentNullException(nameof(sessionAccessor));
-    }
-
     /// <inheritdoc />
-    public async Task<StateAuthContext?> GetStateAuthAsync(CancellationToken cancellationToken = default)
+    public Task<IdpClaimsView?> GetIdpClaimsViewAsync(ClaimsPrincipal? user, CancellationToken cancellationToken = default)
     {
-        var sessionId = _sessionAccessor.GetCurrentSessionId();
-        if (string.IsNullOrEmpty(sessionId))
-            return null;
+        if (user?.Identity?.IsAuthenticated != true)
+            return Task.FromResult<IdpClaimsView?>(null);
 
-        return await _store.GetAsync(sessionId, cancellationToken).ConfigureAwait(false);
+        static string? GetClaim(ClaimsPrincipal p, string type) =>
+            p.Claims.FirstOrDefault(c => string.Equals(c.Type, type, StringComparison.OrdinalIgnoreCase))?.Value;
+
+        var phone = GetClaim(user, "phone");
+        var givenName = GetClaim(user, "givenName");
+        var familyName = GetClaim(user, "familyName");
+        var email = GetClaim(user, "email");
+        var sub = GetClaim(user, "sub");
+
+        // If we have no IdP-specific claims, return null so callers know this user didn't sign in via state IdP.
+        if (string.IsNullOrEmpty(phone) && string.IsNullOrEmpty(givenName) && string.IsNullOrEmpty(familyName) && string.IsNullOrEmpty(email) && string.IsNullOrEmpty(sub))
+            return Task.FromResult<IdpClaimsView?>(null);
+
+        return Task.FromResult<IdpClaimsView?>(new IdpClaimsView(
+            Phone: phone,
+            GivenName: givenName,
+            FamilyName: familyName,
+            Email: email,
+            Sub: sub));
     }
 }
