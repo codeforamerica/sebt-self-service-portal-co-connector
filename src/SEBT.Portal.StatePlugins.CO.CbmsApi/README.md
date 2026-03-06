@@ -9,67 +9,19 @@ Kiota-generated C# client for the Colorado CBMS SEBT API. This project provides 
 
 ## Setup
 
-The CBMS API uses OAuth 2.0 client credentials for authentication. Kiota's `BaseBearerTokenAuthenticationProvider` handles adding the `Authorization: Bearer {token}` header to each request — you provide the token acquisition logic by implementing `IAccessTokenProvider`.
-
-### 1. Implement `IAccessTokenProvider`
-
-`IAccessTokenProvider` is the Kiota interface for token acquisition:
+Use `CbmsSebtApiClientFactory` to create a client. The factory handles OAuth 2.0 client credentials authentication, connection pooling, and Kiota wiring internally.
 
 ```csharp
-public interface IAccessTokenProvider
-{
-    Task<string> GetAuthorizationTokenAsync(
-        Uri uri,
-        Dictionary<string, object>? additionalAuthenticationContext = default,
-        CancellationToken cancellationToken = default);
-
-    AllowedHostsValidator AllowedHostsValidator { get; }
-}
-```
-
-Create an implementation that obtains an OAuth client credentials token from the CBMS token endpoint:
-
-```csharp
-using Microsoft.Kiota.Abstractions.Authentication;
-
-public class CbmsAccessTokenProvider : IAccessTokenProvider
-{
-    public AllowedHostsValidator AllowedHostsValidator { get; } = new();
-
-    public async Task<string> GetAuthorizationTokenAsync(
-        Uri uri,
-        Dictionary<string, object>? additionalAuthenticationContext = default,
-        CancellationToken cancellationToken = default)
-    {
-        // TODO: Acquire an OAuth 2.0 client credentials token from the
-        // CBMS token endpoint using the configured client ID and secret.
-        // Cache/refresh the token as appropriate.
-        throw new NotImplementedException();
-    }
-}
-```
-
-### 2. Wire up the client
-
-Pass the token provider through `BaseBearerTokenAuthenticationProvider` into the request adapter:
-
-```csharp
-using Microsoft.Kiota.Abstractions.Authentication;
-using Microsoft.Kiota.Http.HttpClientLibrary;
 using SEBT.Portal.StatePlugins.CO.CbmsApi;
 
-var tokenProvider = new CbmsAccessTokenProvider(/* client ID, secret, token endpoint */);
-var authProvider = new BaseBearerTokenAuthenticationProvider(tokenProvider);
-
-var httpClient = new HttpClient
-{
-    BaseAddress = new Uri("https://api.example.com")
-};
-var adapter = new HttpClientRequestAdapter(authProvider, httpClient: httpClient);
-var client = new CbmsSebtApiClient(adapter);
+var client = CbmsSebtApiClientFactory.Create(
+    clientId: "your-client-id",
+    clientSecret: "your-client-secret",
+    apiBaseUrl: CbmsDefaults.SandboxApiBaseUrl,
+    tokenEndpointUrl: CbmsDefaults.SandboxTokenEndpointUrl);
 ```
 
-All types above (`IAccessTokenProvider`, `BaseBearerTokenAuthenticationProvider`, `HttpClientRequestAdapter`) are included in the `Microsoft.Kiota.Bundle` package — no extra dependencies needed.
+`CbmsDefaults` provides well-known URLs for each environment. For custom or new environments, pass the URLs directly instead of using the constants.
 
 ## Usage
 

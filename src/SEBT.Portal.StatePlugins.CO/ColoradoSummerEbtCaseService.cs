@@ -1,5 +1,11 @@
 using System.Composition;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
+using SEBT.Portal.StatePlugins.CO.Cbms;
+using SEBT.Portal.StatePlugins.CO.CbmsApi;
+using SEBT.Portal.StatePlugins.CO.CbmsApi.Models;
 using SEBT.Portal.StatesPlugins.Interfaces;
+using SEBT.Portal.StatesPlugins.Interfaces.Data.Cases;
 using SEBT.Portal.StatesPlugins.Interfaces.Models;
 using SEBT.Portal.StatesPlugins.Interfaces.Models.Household;
 
@@ -9,6 +15,41 @@ namespace SEBT.Portal.StatePlugins.CO;
 [ExportMetadata("StateCode", "CO")]
 public class ColoradoSummerEbtCaseService : ISummerEbtCaseService
 {
+    private readonly IConfiguration _configuration;
+    private readonly ILogger<ColoradoSummerEbtCaseService>? _logger;
+
+    [ImportingConstructor]
+    public ColoradoSummerEbtCaseService(
+        [Import] IConfiguration configuration,
+        [Import(AllowDefault = true)] ILogger<ColoradoSummerEbtCaseService>? logger = null)
+    {
+        _configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
+        _logger = logger;
+    }
+
+    public Task<IList<SummerEbtCase>> GetHouseholdCases()
+    {
+        throw ThrowHelper.CreateColoradoNotImplementedException();
+    }
+
+    /// <inheritdoc />
+    public async Task<HouseholdData?> GetHouseholdByIdentifierAsync(
+        HouseholdIdentifierType identifierType,
+        string identifierValue,
+        PiiVisibility piiVisibility,
+        IdentityAssuranceLevel identityAssuranceLevel,
+        CancellationToken cancellationToken = default)
+    {
+        if (identifierType == HouseholdIdentifierType.Email)
+            return await GetHouseholdByGuardianEmailAsync(identifierValue, piiVisibility, identityAssuranceLevel, cancellationToken).ConfigureAwait(false);
+
+        if (identifierType == HouseholdIdentifierType.Phone)
+            return await GetHouseholdByPhoneAsync(identifierValue, piiVisibility, cancellationToken).ConfigureAwait(false);
+
+        return null;
+    }
+
+    /// <inheritdoc />
     public Task<HouseholdData?> GetHouseholdByGuardianEmailAsync(
         string guardianEmail,
         PiiVisibility piiVisibility,
@@ -16,5 +57,57 @@ public class ColoradoSummerEbtCaseService : ISummerEbtCaseService
         CancellationToken cancellationToken = default)
     {
         throw ThrowHelper.CreateColoradoNotImplementedException();
+    }
+
+    private async Task<HouseholdData?> GetHouseholdByPhoneAsync(
+        string phoneNumber,
+        PiiVisibility piiVisibility,
+        CancellationToken cancellationToken)
+    {
+        var options = CbmsOptionsHelper.GetCbmsOptions(_configuration);
+        if (!options.IsConfigured)
+        {
+            _logger?.LogDebug("Cbms not configured; skipping phone lookup.");
+            return null;
+        }
+
+        var normalizedPhone = NormalizePhone(phoneNumber);
+        if (string.IsNullOrEmpty(normalizedPhone))
+        {
+            _logger?.LogWarning("Invalid or empty phone number for CBMS lookup.");
+            return null;
+        }
+
+        try
+        {
+            var client = CbmsSebtApiClientFactory.Create(
+                options.ClientId,
+                options.ClientSecret,
+                options.ApiBaseUrl,
+                options.TokenEndpointUrl);
+            var request = new GetAccountDetailsRequest { PhnNm = normalizedPhone };
+            var response = await client.Sebt.GetAccountDetails.PostAsync(request, cancellationToken: cancellationToken).ConfigureAwait(false);
+
+            if (response?.StdntEnrollDtls == null || response.StdntEnrollDtls.Count == 0)
+                return null;
+
+            return CbmsResponseMapper.MapToHouseholdData(response, normalizedPhone, piiVisibility);
+        }
+        catch (ErrorResponse ex) when (ex.ResponseStatusCode == 404)
+        {
+            return null;
+        }
+        catch (Exception ex)
+        {
+            _logger?.LogError(ex, "CBMS Get Account Details failed for phone lookup.");
+            throw;
+        }
+    }
+
+    private static string? NormalizePhone(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return null;
+        var digits = new string(value.Where(char.IsDigit).ToArray());
+        return digits.Length >= 10 ? digits : null;
     }
 }
