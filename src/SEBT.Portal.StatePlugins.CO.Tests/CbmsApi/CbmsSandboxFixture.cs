@@ -7,6 +7,7 @@ namespace SEBT.Portal.StatePlugins.CO.Tests.CbmsApi;
 /// Shared xUnit fixture that creates a <see cref="CbmsSebtApiClient"/> pointed at the
 /// CBMS sandbox (UAT) environment. When no credentials are configured,
 /// <see cref="CredentialsConfigured"/> is false and tests should skip gracefully.
+/// When <c>Cbms:UseMockResponses</c> is true, uses mock responses from the API spec examples instead.
 /// </summary>
 /// <remarks>
 /// Configure credentials via:
@@ -19,14 +20,18 @@ namespace SEBT.Portal.StatePlugins.CO.Tests.CbmsApi;
 ///     <c>Cbms__SandboxClientId</c> and <c>Cbms__SandboxClientSecret</c>
 ///   </item>
 /// </list>
+/// Enable mock responses (no real API calls): <c>Cbms:UseMockResponses=true</c> or <c>Cbms__UseMockResponses=true</c>
 /// </remarks>
 public class CbmsSandboxFixture : IAsyncLifetime
 {
-    /// <summary>The configured Kiota client, or null when no credentials are available.</summary>
+    /// <summary>The configured Kiota client, or null when no credentials or mocks are available.</summary>
     public CbmsSebtApiClient? Client { get; private set; }
 
-    /// <summary>Whether sandbox credentials were found in configuration.</summary>
+    /// <summary>Whether tests can run (real sandbox credentials or mock responses configured).</summary>
     public bool CredentialsConfigured { get; private set; }
+
+    /// <summary>Whether mock responses are being used instead of the real sandbox.</summary>
+    public bool UseMockResponses { get; private set; }
 
     public Task InitializeAsync()
     {
@@ -34,6 +39,22 @@ public class CbmsSandboxFixture : IAsyncLifetime
             .AddUserSecrets<CbmsSandboxFixture>(optional: true)
             .AddEnvironmentVariables()
             .Build();
+
+        var useMock = configuration["Cbms:UseMockResponses"]?.Equals("true", StringComparison.OrdinalIgnoreCase) == true
+            || configuration["Cbms__UseMockResponses"]?.Equals("true", StringComparison.OrdinalIgnoreCase) == true;
+
+        if (useMock)
+        {
+            CredentialsConfigured = true;
+            UseMockResponses = true;
+            Client = CbmsSebtApiClientFactory.Create(
+                clientId: "mock-client-id",
+                clientSecret: "mock-client-secret",
+                CbmsDefaults.SandboxApiBaseUrl,
+                CbmsDefaults.SandboxTokenEndpointUrl,
+                new MockCbmsHttpHandler());
+            return Task.CompletedTask;
+        }
 
         var clientId = configuration["Cbms:SandboxClientId"];
         var clientSecret = configuration["Cbms:SandboxClientSecret"];

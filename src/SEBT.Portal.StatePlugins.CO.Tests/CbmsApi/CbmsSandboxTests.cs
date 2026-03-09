@@ -33,18 +33,19 @@ public class CbmsSandboxTests(CbmsSandboxFixture fixture)
     {
         Skip.If(!fixture.CredentialsConfigured, SkipReason);
 
+        // From docs/misc/cbms-cfa-eapi_V2.yaml type example
         var request = new List<CheckEnrollmentRequest>
         {
             new()
             {
-                StdFirstName = "Test",
-                StdLastName = "Student",
-                StdDob = "2015-01-01",
-                CbmsCsId = "C00001",
-                StdSasId = "S00001",
-                StdSchlCd = "SCH01",
+                StdFirstName = "REON",
+                StdLastName = "NEBADA",
+                StdDob = "2010-07-13",
+                CbmsCsId = "",
+                StdSasId = "",
+                StdSchlCd = "",
                 SebtYear = "2025",
-                StdReqInd = "REQ-001",
+                StdReqInd = "1",
             },
         };
 
@@ -58,9 +59,10 @@ public class CbmsSandboxTests(CbmsSandboxFixture fixture)
     {
         Skip.If(!fixture.CredentialsConfigured, SkipReason);
 
+        // From docs/misc/cbms-cfa-eapi_V2.yaml type_3 example (3943102321)
         var request = new GetAccountDetailsRequest
         {
-            PhnNm = "8185558437",
+            PhnNm = "3943102321",
         };
 
         var response = await fixture.Client!.Sebt.GetAccountDetails.PostAsync(request);

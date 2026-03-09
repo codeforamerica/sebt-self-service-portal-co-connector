@@ -12,7 +12,7 @@ The CI workflow uses `GITHUB_TOKEN` (provided automatically) to check out the [s
 
 ### Optional: CBMS sandbox integration tests
 
-The CI workflow is designed to pass CBMS API sandbox credentials from repository secrets. To enable these tests, add these as GitHub Actions **repository secrets**:
+CI runs CBMS integration tests with mock responses by default, so no secrets are required for the build to pass (health checks runs are skipped!). To test against the real sandbox, add these as GitHub Actions **repository secrets** and set `Cbms__UseMockResponses=false` in the workflow:
 
 | Secret | Description |
 |--------|-------------|
@@ -26,3 +26,14 @@ cd src/SEBT.Portal.StatePlugins.CO.Tests
 dotnet user-secrets set "Cbms:SandboxClientId" "<id>"
 dotnet user-secrets set "Cbms:SandboxClientSecret" "<secret>"
 ```
+
+### Optional: Run integration tests with mock responses
+
+To run the CBMS integration tests without real credentials or network access, enable mock responses:
+
+```bash
+cd src/SEBT.Portal.StatePlugins.CO.Tests
+dotnet user-secrets set "Cbms:UseMockResponses" "true"
+```
+
+Or use an environment variable: `Cbms__UseMockResponses=true`
