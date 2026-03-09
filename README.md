@@ -37,3 +37,9 @@ dotnet user-secrets set "Cbms:UseMockResponses" "true"
 ```
 
 Or use an environment variable: `Cbms__UseMockResponses=true`
+
+### Local development with mock responses
+
+The same mock responses used in integration tests are available when running the host application. Set `Cbms:UseMockResponses=true` in your host's configuration or `Cbms__UseMockResponses=true` as an environment variable. The Colorado plugin will use mock CBMS API responses (you don't need the client_id/secrets for this to work).
+
+Mock response data lives in `src/SEBT.Portal.StatePlugins.CO.CbmsApi/TestData/CbmsMocks/` as JSON files. Edit those files to change mock scenarios without recompiling.

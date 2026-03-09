@@ -9,7 +9,9 @@ public class CbmsOptionsHelperTests
     [Fact]
     public void GetCbmsOptions_empty_config_returns_IsConfigured_false()
     {
-        var config = new ConfigurationBuilder().Build();
+        var config = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?> { ["Cbms:UseMockResponses"] = "false" })
+            .Build();
         var options = CbmsOptionsHelper.GetCbmsOptions(config);
 
         Assert.False(options.IsConfigured);
@@ -48,6 +50,21 @@ public class CbmsOptionsHelperTests
 
         Assert.Equal(CbmsDefaults.SandboxApiBaseUrl, options.ApiBaseUrl);
         Assert.Equal(CbmsDefaults.SandboxTokenEndpointUrl, options.TokenEndpointUrl);
+    }
+
+    [Fact]
+    public void GetCbmsOptions_UseMockResponses_true_returns_IsConfigured_true()
+    {
+        var config = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["Cbms:UseMockResponses"] = "true"
+            })
+            .Build();
+        var options = CbmsOptionsHelper.GetCbmsOptions(config);
+
+        Assert.True(options.IsConfigured);
+        Assert.True(options.UseMockResponses);
     }
 
     [Fact]

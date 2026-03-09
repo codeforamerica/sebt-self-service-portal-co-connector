@@ -3,6 +3,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using SEBT.Portal.StatePlugins.CO.Cbms;
 using SEBT.Portal.StatePlugins.CO.CbmsApi;
+using SEBT.Portal.StatePlugins.CO.CbmsApi.Mocks;
 using SEBT.Portal.StatePlugins.CO.CbmsApi.Models;
 using SEBT.Portal.StatesPlugins.Interfaces;
 using SEBT.Portal.StatesPlugins.Interfaces.Data.Cases;
@@ -27,10 +28,40 @@ public class ColoradoSummerEbtCaseService : ISummerEbtCaseService
         _logger = logger;
     }
 
-    public Task<IList<SummerEbtCase>> GetHouseholdCases()
+    /// <summary>
+    /// Returns Summer EBT cases for the household identified by the given ID.
+    /// </summary>
+    /// <param name="householdId">For CO, the guardian email (household identifier).</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>List of Summer EBT cases, or empty when not found or not configured.</returns>
+    public async Task<IList<SummerEbtCase>> GetHouseholdCasesAsync(
+        string? householdId,
+        CancellationToken cancellationToken = default)
     {
-        throw ThrowHelper.CreateColoradoNotImplementedException();
+        if (string.IsNullOrWhiteSpace(householdId))
+        {
+            _logger?.LogDebug("No household ID provided; returning empty cases.");
+            return new List<SummerEbtCase>();
+        }
+
+        var piiVisibility = new PiiVisibility(IncludeAddress: true, IncludeEmail: true, IncludePhone: true);
+        var household = await GetHouseholdByGuardianEmailAsync(
+            householdId,
+            piiVisibility,
+            IdentityAssuranceLevel.None,
+            cancellationToken).ConfigureAwait(false);
+
+        return household?.SummerEbtCases ?? new List<SummerEbtCase>();
     }
+
+    /// <summary>
+    /// Returns Summer EBT cases for the current household.  
+    /// Accepts Type 'Phone'; Email is not supported.
+    /// <see cref="GetHouseholdCasesAsync"/> with the resolved email when available.
+    /// </summary>
+    /// <returns>Empty list when no household identifier is available.</returns>
+    public Task<IList<SummerEbtCase>> GetHouseholdCases() =>
+        GetHouseholdCasesAsync(householdId: null);
 
     /// <inheritdoc />
     public async Task<HouseholdData?> GetHouseholdByIdentifierAsync(
@@ -56,7 +87,8 @@ public class ColoradoSummerEbtCaseService : ISummerEbtCaseService
         IdentityAssuranceLevel identityAssuranceLevel,
         CancellationToken cancellationToken = default)
     {
-        throw ThrowHelper.CreateColoradoNotImplementedException();
+        _logger?.LogDebug("CBMS does not support lookup by guardian email; returning null.");
+        return Task.FromResult<HouseholdData?>(null);
     }
 
     private async Task<HouseholdData?> GetHouseholdByPhoneAsync(
@@ -80,11 +112,16 @@ public class ColoradoSummerEbtCaseService : ISummerEbtCaseService
 
         try
         {
+            var clientId = options.UseMockResponses ? "mock-client-id" : options.ClientId;
+            var clientSecret = options.UseMockResponses ? "mock-client-secret" : options.ClientSecret;
+            var handler = options.UseMockResponses ? new MockCbmsHttpHandler() : null;
+
             var client = CbmsSebtApiClientFactory.Create(
-                options.ClientId,
-                options.ClientSecret,
+                clientId,
+                clientSecret,
                 options.ApiBaseUrl,
-                options.TokenEndpointUrl);
+                options.TokenEndpointUrl,
+                handler);
             var request = new GetAccountDetailsRequest { PhnNm = normalizedPhone };
             var response = await client.Sebt.GetAccountDetails.PostAsync(request, cancellationToken: cancellationToken).ConfigureAwait(false);
 

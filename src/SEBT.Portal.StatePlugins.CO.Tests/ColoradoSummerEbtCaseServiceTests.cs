@@ -8,7 +8,9 @@ public class ColoradoSummerEbtCaseServiceTests
 {
     private static IConfiguration CreateEmptyConfiguration()
     {
-        return new ConfigurationBuilder().Build();
+        return new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?> { ["Cbms:UseMockResponses"] = "false" })
+            .Build();
     }
 
     private static IConfiguration CreateCbmsConfiguration(string clientId = "test-id", string clientSecret = "test-secret")
@@ -23,26 +25,51 @@ public class ColoradoSummerEbtCaseServiceTests
     }
 
     [Fact]
-    public async Task GetHouseholdByGuardianEmailAsync_throws_NotImplementedException()
+    public async Task GetHouseholdByGuardianEmailAsync_returns_null_CBMS_has_no_email_lookup()
     {
         var service = new ColoradoSummerEbtCaseService(CreateEmptyConfiguration());
         var piiVisibility = new PiiVisibility(IncludeAddress: false, IncludeEmail: false, IncludePhone: false);
 
-        var ex = await Assert.ThrowsAsync<NotImplementedException>(async () =>
-            await service.GetHouseholdByGuardianEmailAsync("test@example.com", piiVisibility, IdentityAssuranceLevel.None));
+        var result = await service.GetHouseholdByGuardianEmailAsync(
+            "test@example.com", piiVisibility, IdentityAssuranceLevel.None);
 
-        Assert.Contains("Colorado", ex.Message);
+        Assert.Null(result);
     }
 
     [Fact]
-    public async Task GetHouseholdCases_throws_NotImplementedException()
+    public async Task GetHouseholdCases_returns_empty_when_no_household_id()
     {
         var service = new ColoradoSummerEbtCaseService(CreateEmptyConfiguration());
 
-        var ex = await Assert.ThrowsAsync<NotImplementedException>(async () =>
-            await service.GetHouseholdCases());
+        var result = await service.GetHouseholdCases();
 
-        Assert.Contains("Colorado", ex.Message);
+        Assert.NotNull(result);
+        Assert.Empty(result);
+    }
+
+    [Fact]
+    public async Task GetHouseholdCasesAsync_with_email_returns_empty_CBMS_has_no_email_lookup()
+    {
+        var service = new ColoradoSummerEbtCaseService(CreateEmptyConfiguration());
+
+        var result = await service.GetHouseholdCasesAsync("guardian@example.com");
+
+        Assert.NotNull(result);
+        Assert.Empty(result);
+    }
+
+    [Fact]
+    public async Task GetHouseholdCasesAsync_with_null_or_empty_returns_empty()
+    {
+        var service = new ColoradoSummerEbtCaseService(CreateEmptyConfiguration());
+
+        var resultNull = await service.GetHouseholdCasesAsync(null);
+        var resultEmpty = await service.GetHouseholdCasesAsync("");
+
+        Assert.NotNull(resultNull);
+        Assert.Empty(resultNull);
+        Assert.NotNull(resultEmpty);
+        Assert.Empty(resultEmpty);
     }
 
     [Fact]

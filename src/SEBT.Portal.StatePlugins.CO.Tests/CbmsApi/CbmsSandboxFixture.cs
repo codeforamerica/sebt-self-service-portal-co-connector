@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Configuration;
 using SEBT.Portal.StatePlugins.CO.CbmsApi;
+using SEBT.Portal.StatePlugins.CO.CbmsApi.Mocks;
 
 namespace SEBT.Portal.StatePlugins.CO.Tests.CbmsApi;
 

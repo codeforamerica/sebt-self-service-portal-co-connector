@@ -25,7 +25,11 @@ internal static class CbmsOptionsHelper
             ?? Environment.GetEnvironmentVariable("Cbms__TokenEndpointUrl")
             ?? CbmsDefaults.SandboxTokenEndpointUrl;
 
-        return new CbmsConnectionOptions(clientId, clientSecret, apiBaseUrl, tokenEndpointUrl);
+        var useMockResponsesRaw = configuration["Cbms:UseMockResponses"]
+            ?? Environment.GetEnvironmentVariable("Cbms__UseMockResponses");
+        var useMockResponses = useMockResponsesRaw?.Equals("true", StringComparison.OrdinalIgnoreCase) == true;
+
+        return new CbmsConnectionOptions(clientId, clientSecret, apiBaseUrl, tokenEndpointUrl, useMockResponses);
     }
 }
 
@@ -33,8 +37,12 @@ internal sealed record CbmsConnectionOptions(
     string ClientId,
     string ClientSecret,
     string ApiBaseUrl,
-    string TokenEndpointUrl)
+    string TokenEndpointUrl,
+    bool UseMockResponses = false)
 {
+    /// <summary>
+    /// True when real credentials are configured or mock responses are enabled.
+    /// </summary>
     public bool IsConfigured =>
-        !string.IsNullOrWhiteSpace(ClientId) && !string.IsNullOrWhiteSpace(ClientSecret);
+        UseMockResponses || (!string.IsNullOrWhiteSpace(ClientId) && !string.IsNullOrWhiteSpace(ClientSecret));
 }

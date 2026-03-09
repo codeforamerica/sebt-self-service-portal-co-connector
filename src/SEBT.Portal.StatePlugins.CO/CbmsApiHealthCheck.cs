@@ -11,7 +11,8 @@ internal class CbmsApiHealthCheck(
     string clientId,
     string clientSecret,
     string apiBaseUrl,
-    string tokenEndpointUrl) : IHealthCheck
+    string tokenEndpointUrl,
+    HttpMessageHandler? httpMessageHandler = null) : IHealthCheck
 {
     public async Task<HealthCheckResult> CheckHealthAsync(
         HealthCheckContext context,
@@ -19,7 +20,8 @@ internal class CbmsApiHealthCheck(
     {
         try
         {
-            var client = CbmsSebtApiClientFactory.Create(clientId, clientSecret, apiBaseUrl, tokenEndpointUrl);
+            var client = CbmsSebtApiClientFactory.Create(
+                clientId, clientSecret, apiBaseUrl, tokenEndpointUrl, httpMessageHandler);
             await client.Ping.GetAsync(cancellationToken: cancellationToken);
 
             return HealthCheckResult.Healthy();
