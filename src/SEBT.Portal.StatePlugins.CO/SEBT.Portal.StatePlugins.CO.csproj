@@ -4,6 +4,7 @@
         <TargetFramework>net10.0</TargetFramework>
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
+        <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
     </PropertyGroup>
 
     <PropertyGroup>
@@ -18,9 +19,18 @@
         <RestoreForce>true</RestoreForce>
     </PropertyGroup>
 
+    <!-- When state-connector repo is alongside this repo, use project reference so we build against current Interfaces source. -->
+    <PropertyGroup>
+        <StateConnectorInterfacesProject Condition="'$(StateConnectorInterfacesProject)' == ''">$(MSBuildThisFileDirectory)../../../sebt-self-service-portal-state-connector/src/SEBT.Portal.StatesPlugins.Interfaces/SEBT.Portal.StatesPlugins.Interfaces.csproj</StateConnectorInterfacesProject>
+    </PropertyGroup>
+
     <ItemGroup>
-        <PackageReference Include="SEBT.Portal.StatesPlugins.Interfaces" Version="0.0.1-*" />
+        <PackageReference Include="SEBT.Portal.StatesPlugins.Interfaces" Version="0.0.1-dev-*" Condition="!Exists('$(StateConnectorInterfacesProject)')" />
         <PackageReference Include="System.Composition" Version="10.0.1" />
+    </ItemGroup>
+
+    <ItemGroup Condition="Exists('$(StateConnectorInterfacesProject)')">
+        <ProjectReference Include="$(StateConnectorInterfacesProject)" />
     </ItemGroup>
 
     <ItemGroup>
