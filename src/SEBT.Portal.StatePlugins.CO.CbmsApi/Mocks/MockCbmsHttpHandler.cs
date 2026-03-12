@@ -18,6 +18,15 @@ public sealed class MockCbmsHttpHandler : HttpMessageHandler
 {
     private const string TokenPath = "ext-uat-c-cbms-oauth-app/token";
     private const string ApiBase = "ext-uat-c-cbms-cfa-eapi/api";
+    private const string GetAccountDetailsPath = "sebt/get-account-details";
+    private static readonly string GetAccountDetails404Body = """{"apiName":"cbms-sebt-eapi-impl","correlationId":"test","timestamp":"2026-01-30T16:00:35.143Z","errorDetails":[{"code":"404","message":"Not Found"}]}""";
+
+    private readonly bool _return404ForGetAccountDetails;
+
+    public MockCbmsHttpHandler(bool return404ForGetAccountDetails = false)
+    {
+        _return404ForGetAccountDetails = return404ForGetAccountDetails;
+    }
 
     private static readonly string MockTokenResponse = LoadMockJson("token.json");
     private static readonly string MockPingResponse = LoadMockJson("ping.json");
@@ -47,8 +56,15 @@ public sealed class MockCbmsHttpHandler : HttpMessageHandler
             return Task.FromResult(JsonResponse(MockCheckEnrollmentResponse));
         }
 
-        if (url.Contains($"{ApiBase}/sebt/get-account-details", StringComparison.OrdinalIgnoreCase) && method == HttpMethod.Post)
+        if (url.Contains(GetAccountDetailsPath, StringComparison.OrdinalIgnoreCase) && method == HttpMethod.Post)
         {
+            if (_return404ForGetAccountDetails)
+            {
+                return Task.FromResult(new HttpResponseMessage(HttpStatusCode.NotFound)
+                {
+                    Content = new StringContent(GetAccountDetails404Body, Encoding.UTF8, "application/json")
+                });
+            }
             return Task.FromResult(JsonResponse(MockGetAccountDetailsResponse));
         }
 

@@ -1,4 +1,7 @@
 using Microsoft.Extensions.Configuration;
+using SEBT.Portal.StatePlugins.CO;
+using SEBT.Portal.StatePlugins.CO.CbmsApi;
+using SEBT.Portal.StatesPlugins.Interfaces.Data.Cases;
 using SEBT.Portal.StatesPlugins.Interfaces.Models;
 using SEBT.Portal.StatesPlugins.Interfaces.Models.Household;
 
@@ -13,13 +16,17 @@ public class ColoradoSummerEbtCaseServiceTests
             .Build();
     }
 
-    private static IConfiguration CreateCbmsConfiguration(string clientId = "test-id", string clientSecret = "test-secret")
+    private static IConfiguration CreateCbmsConfiguration(
+        string clientId = "test-id",
+        string clientSecret = "test-secret",
+        bool useMockResponses = false)
     {
         return new ConfigurationBuilder()
             .AddInMemoryCollection(new Dictionary<string, string?>
             {
                 ["Cbms:ClientId"] = clientId,
-                ["Cbms:ClientSecret"] = clientSecret
+                ["Cbms:ClientSecret"] = clientSecret,
+                ["Cbms:UseMockResponses"] = useMockResponses ? "true" : "false"
             })
             .Build();
     }
@@ -91,6 +98,51 @@ public class ColoradoSummerEbtCaseServiceTests
     public async Task GetHouseholdByIdentifierAsync_with_Phone_returns_null_when_Cbms_not_configured()
     {
         var service = new ColoradoSummerEbtCaseService(CreateEmptyConfiguration());
+        var piiVisibility = new PiiVisibility(IncludeAddress: false, IncludeEmail: false, IncludePhone: false);
+
+        var result = await service.GetHouseholdByIdentifierAsync(
+            HouseholdIdentifierType.Phone,
+            "8185551234",
+            piiVisibility,
+            IdentityAssuranceLevel.None);
+
+        Assert.Null(result);
+    }
+
+    [Fact]
+    public async Task GetHouseholdByIdentifierAsync_with_Phone_returns_household_when_UseMockResponses_and_valid_phone()
+    {
+        var service = new ColoradoSummerEbtCaseService(CreateCbmsConfiguration(useMockResponses: true));
+        var piiVisibility = new PiiVisibility(IncludeAddress: true, IncludeEmail: true, IncludePhone: true);
+
+        var result = await service.GetHouseholdByIdentifierAsync(
+            HouseholdIdentifierType.Phone,
+            "8185551234",
+            piiVisibility,
+            IdentityAssuranceLevel.None);
+
+        Assert.NotNull(result);
+        Assert.Equal("8185551234", result.Phone);
+        Assert.NotEmpty(result.SummerEbtCases);
+        var @case = result.SummerEbtCases[0];
+        Assert.Equal("Johnny", @case.ChildFirstName);
+        Assert.Equal("Smith", @case.ChildLastName);
+        Assert.Equal("C8887727", @case.EbtCaseNumber);
+    }
+
+    [Fact]
+    public async Task GetHouseholdByIdentifierAsync_with_Phone_returns_null_when_CBMS_returns_404()
+    {
+        var config = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["Cbms:ClientId"] = "test-id",
+                ["Cbms:ClientSecret"] = "test-secret",
+                ["Cbms:UseMockResponses"] = "true",
+                ["Cbms:Return404ForGetAccountDetails"] = "true"
+            })
+            .Build();
+        var service = new ColoradoSummerEbtCaseService(config);
         var piiVisibility = new PiiVisibility(IncludeAddress: false, IncludeEmail: false, IncludePhone: false);
 
         var result = await service.GetHouseholdByIdentifierAsync(

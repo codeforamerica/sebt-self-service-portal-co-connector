@@ -19,6 +19,10 @@ public class ColoradoSummerEbtCaseService : ISummerEbtCaseService
     private readonly IConfiguration _configuration;
     private readonly ILogger<ColoradoSummerEbtCaseService>? _logger;
 
+    private CbmsConnectionOptions? _cachedOptions;
+    private CbmsSebtApiClient? _cachedClient;
+    private readonly object _clientCacheLock = new();
+
     [ImportingConstructor]
     public ColoradoSummerEbtCaseService(
         [Import] IConfiguration configuration,
@@ -112,16 +116,7 @@ public class ColoradoSummerEbtCaseService : ISummerEbtCaseService
 
         try
         {
-            var clientId = options.UseMockResponses ? "mock-client-id" : options.ClientId;
-            var clientSecret = options.UseMockResponses ? "mock-client-secret" : options.ClientSecret;
-            var handler = options.UseMockResponses ? new MockCbmsHttpHandler() : null;
-
-            var client = CbmsSebtApiClientFactory.Create(
-                clientId,
-                clientSecret,
-                options.ApiBaseUrl,
-                options.TokenEndpointUrl,
-                handler);
+            var client = GetOrCreateClient(options);
             var request = new GetAccountDetailsRequest { PhnNm = normalizedPhone };
             var response = await client.Sebt.GetAccountDetails.PostAsync(request, cancellationToken: cancellationToken).ConfigureAwait(false);
 
@@ -138,6 +133,30 @@ public class ColoradoSummerEbtCaseService : ISummerEbtCaseService
         {
             _logger?.LogError(ex, "CBMS Get Account Details failed for phone lookup.");
             throw;
+        }
+    }
+
+    private CbmsSebtApiClient GetOrCreateClient(CbmsConnectionOptions options)
+    {
+        lock (_clientCacheLock)
+        {
+            if (_cachedOptions == options && _cachedClient != null)
+                return _cachedClient;
+
+            var clientId = options.UseMockResponses ? "mock-client-id" : options.ClientId;
+            var clientSecret = options.UseMockResponses ? "mock-client-secret" : options.ClientSecret;
+            var handler = options.UseMockResponses
+                ? new MockCbmsHttpHandler(return404ForGetAccountDetails: options.Return404ForGetAccountDetails)
+                : null;
+
+            _cachedClient = CbmsSebtApiClientFactory.Create(
+                clientId,
+                clientSecret,
+                options.ApiBaseUrl,
+                options.TokenEndpointUrl,
+                handler);
+            _cachedOptions = options;
+            return _cachedClient;
         }
     }
 

@@ -37,6 +37,12 @@ internal static class CbmsResponseMapper
         return household;
     }
 
+    private static string? FormatPostalCode(string? zip, string? zip4)
+    {
+        if (string.IsNullOrWhiteSpace(zip)) return null;
+        return string.IsNullOrWhiteSpace(zip4) ? zip : $"{zip}-{zip4}";
+    }
+
     private static HouseholdAddress? MapAddress(GetAccountStudentDetail s)
     {
         if (string.IsNullOrEmpty(s.AddrLn1) && string.IsNullOrEmpty(s.Cty))
@@ -47,7 +53,7 @@ internal static class CbmsResponseMapper
             StreetAddress2 = s.AddrLn2,
             City = s.Cty,
             State = s.StaCd,
-            PostalCode = string.IsNullOrEmpty(s.Zip4) ? s.Zip : $"{s.Zip}-{s.Zip4}"
+            PostalCode = FormatPostalCode(s.Zip, s.Zip4)
         };
     }
 

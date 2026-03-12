@@ -89,7 +89,13 @@ public class ClientCredentialsTokenProvider : IAccessTokenProvider
             new[] { new KeyValuePair<string, string>("grant_type", "client_credentials") });
 
         using var response = await _httpClient.SendAsync(request, cancellationToken);
-        response.EnsureSuccessStatusCode();
+
+        if (!response.IsSuccessStatusCode)
+        {
+            var body = await response.Content.ReadAsStringAsync(cancellationToken);
+            throw new HttpRequestException(
+                $"Token request failed {(int)response.StatusCode} {response.ReasonPhrase}: {body}");
+        }
 
         using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
         using var json = await JsonDocument.ParseAsync(stream, cancellationToken: cancellationToken);
@@ -97,8 +103,16 @@ public class ClientCredentialsTokenProvider : IAccessTokenProvider
         var root = json.RootElement;
         var accessToken = root.GetProperty("access_token").GetString()
             ?? throw new InvalidOperationException("Token response missing access_token.");
-        var expiresIn = root.GetProperty("expires_in").GetInt32();
+        var expiresIn = ParseExpiresIn(root.GetProperty("expires_in"));
 
         return (accessToken, expiresIn);
+    }
+
+    private static int ParseExpiresIn(JsonElement element)
+    {
+        if (element.ValueKind == JsonValueKind.Number && element.TryGetInt32(out var n))
+            return n;
+        var s = element.GetString();
+        return int.TryParse(s, out var parsed) ? parsed : 0;
     }
 }

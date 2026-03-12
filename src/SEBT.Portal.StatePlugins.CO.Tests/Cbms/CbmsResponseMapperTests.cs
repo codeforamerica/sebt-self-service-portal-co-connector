@@ -149,6 +149,65 @@ public class CbmsResponseMapperTests
         Assert.Equal(expected, app.CardStatus);
     }
 
+    [Theory]
+    [InlineData("UNDER REVIEW", "U", ApplicationStatus.UnderReview)]
+    public void MapToHouseholdData_maps_application_status_under_review(string? sebtAppSts, string? shortCode, ApplicationStatus expected)
+    {
+        var student = CreateMinimalStudent();
+        student.SebtAppSts = sebtAppSts ?? shortCode;
+        var response = new GetAccountDetailsResponse
+        {
+            StdntEnrollDtls = new List<GetAccountStudentDetail> { student }
+        };
+        var piiVisibility = new PiiVisibility(IncludeAddress: false, IncludeEmail: false, IncludePhone: false);
+
+        var result = CbmsResponseMapper.MapToHouseholdData(response, "8185551234", piiVisibility);
+
+        var @case = Assert.Single(result.SummerEbtCases);
+        Assert.Equal(expected, @case.ApplicationStatus);
+    }
+
+    [Fact]
+    public void MapToHouseholdData_MapAddress_returns_null_when_AddrLn1_and_Cty_both_empty()
+    {
+        var student = CreateMinimalStudent();
+        student.AddrLn1 = null;
+        student.AddrLn2 = null;
+        student.Cty = null;
+        student.StaCd = null;
+        student.Zip = null;
+        student.Zip4 = null;
+        var response = new GetAccountDetailsResponse
+        {
+            StdntEnrollDtls = new List<GetAccountStudentDetail> { student }
+        };
+        var piiVisibility = new PiiVisibility(IncludeAddress: true, IncludeEmail: false, IncludePhone: false);
+
+        var result = CbmsResponseMapper.MapToHouseholdData(response, "8185551234", piiVisibility);
+
+        Assert.Null(result.AddressOnFile);
+    }
+
+    [Fact]
+    public void MapToHouseholdData_FormatPostalCode_returns_null_when_zip_null_even_if_zip4_present()
+    {
+        var student = CreateMinimalStudent();
+        student.AddrLn1 = "123 Main St";
+        student.Cty = "Denver";
+        student.Zip = null;
+        student.Zip4 = "1234";
+        var response = new GetAccountDetailsResponse
+        {
+            StdntEnrollDtls = new List<GetAccountStudentDetail> { student }
+        };
+        var piiVisibility = new PiiVisibility(IncludeAddress: true, IncludeEmail: false, IncludePhone: false);
+
+        var result = CbmsResponseMapper.MapToHouseholdData(response, "8185551234", piiVisibility);
+
+        Assert.NotNull(result.AddressOnFile);
+        Assert.Null(result.AddressOnFile.PostalCode);
+    }
+
     [Fact]
     public void MapToHouseholdData_builds_applications_grouped_by_app_id()
     {
