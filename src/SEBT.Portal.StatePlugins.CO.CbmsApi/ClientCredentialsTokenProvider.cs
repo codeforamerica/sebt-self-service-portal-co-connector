@@ -118,6 +118,8 @@ public class ClientCredentialsTokenProvider : IAccessTokenProvider
     {
         if (element.ValueKind == JsonValueKind.Number && element.TryGetInt32(out var n) && n > 0)
             return n;
+        if (element.ValueKind == JsonValueKind.Number)
+            return DefaultExpiresInSeconds; // Number but not positive (e.g. 0)
         var s = element.GetString();
         if (int.TryParse(s, out var parsed) && parsed > 0)
             return parsed;
