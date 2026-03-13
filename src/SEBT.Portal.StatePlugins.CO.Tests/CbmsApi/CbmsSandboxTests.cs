@@ -33,7 +33,6 @@ public class CbmsSandboxTests(CbmsSandboxFixture fixture)
     {
         Skip.If(!fixture.CredentialsConfigured, SkipReason);
 
-        // From docs/misc/cbms-cfa-eapi_V2.yaml type example
         var request = new List<CheckEnrollmentRequest>
         {
             new()
@@ -60,7 +59,6 @@ public class CbmsSandboxTests(CbmsSandboxFixture fixture)
         Skip.If(!fixture.CredentialsConfigured, SkipReason);
         Skip.If(fixture.UseMockResponses, "Skipped when using mock responses; this test verifies the real sandbox response.");
 
-        // Phone from docs/misc/CPPM-11977.postman_collection.json (Get Account Details request)
         var request = new GetAccountDetailsRequest
         {
             PhnNm = "8185558437",
