@@ -108,11 +108,19 @@ public class ClientCredentialsTokenProvider : IAccessTokenProvider
         return (accessToken, expiresIn);
     }
 
+    /// <summary>
+    /// Default expiry in seconds when the token response omits or provides an invalid expires_in.
+    /// Using a sensible default avoids a refresh loop that would occur if we returned 0.
+    /// </summary>
+    private const int DefaultExpiresInSeconds = 3600;
+
     private static int ParseExpiresIn(JsonElement element)
     {
-        if (element.ValueKind == JsonValueKind.Number && element.TryGetInt32(out var n))
+        if (element.ValueKind == JsonValueKind.Number && element.TryGetInt32(out var n) && n > 0)
             return n;
         var s = element.GetString();
-        return int.TryParse(s, out var parsed) ? parsed : 0;
+        if (int.TryParse(s, out var parsed) && parsed > 0)
+            return parsed;
+        return DefaultExpiresInSeconds;
     }
 }

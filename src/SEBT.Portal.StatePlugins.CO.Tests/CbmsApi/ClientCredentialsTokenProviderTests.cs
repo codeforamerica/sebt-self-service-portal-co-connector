@@ -1,5 +1,4 @@
 using System.Net;
-using System.Reflection;
 using System.Text;
 using SEBT.Portal.StatePlugins.CO.CbmsApi;
 using SEBT.Portal.StatePlugins.CO.CbmsApi.Mocks;
@@ -13,6 +12,29 @@ namespace SEBT.Portal.StatePlugins.CO.Tests.CbmsApi;
 /// </summary>
 public class ClientCredentialsTokenProviderTests
 {
+    [Fact]
+    public async Task GetAuthorizationTokenAsync_uses_default_when_expires_in_invalid()
+    {
+        // When expires_in is 0 or unparseable, provider uses DefaultExpiresInSeconds to avoid refresh loop
+        var tokenWithInvalidExpiry = """{"access_token":"test-token","token_type":"Bearer","expires_in":0}""";
+        var getAccountDetailsJson = await LoadGetAccountDetailsMockAsync();
+
+        var handler = new TokenAndGetAccountDetailsHandler(tokenWithInvalidExpiry, getAccountDetailsJson);
+        var client = CbmsSebtApiClientFactory.Create(
+            "test-id",
+            "test-secret",
+            CbmsDefaults.SandboxApiBaseUrl,
+            CbmsDefaults.SandboxTokenEndpointUrl,
+            handler);
+
+        var response = await client.Sebt.GetAccountDetails.PostAsync(
+            new GetAccountDetailsRequest { PhnNm = "3035551234" });
+
+        Assert.NotNull(response);
+        Assert.NotNull(response.StdntEnrollDtls);
+        Assert.NotEmpty(response.StdntEnrollDtls);
+    }
+
     [Fact]
     public async Task GetAuthorizationTokenAsync_parses_expires_in_when_string()
     {
