@@ -2,7 +2,9 @@ using System.Composition;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
+using SEBT.Portal.StatePlugins.CO.Cbms;
 using SEBT.Portal.StatePlugins.CO.CbmsApi;
+using SEBT.Portal.StatePlugins.CO.CbmsApi.Mocks;
 using SEBT.Portal.StatesPlugins.Interfaces;
 
 namespace SEBT.Portal.StatePlugins.CO;
@@ -21,35 +23,28 @@ public class ColoradoHealthCheckService([Import(AllowDefault = true)] IConfigura
 
     public void ConfigureHealthChecks(IHealthChecksBuilder builder)
     {
-        var clientId = configuration?["Cbms:ClientId"]
-            ?? Environment.GetEnvironmentVariable("Cbms__ClientId");
+        var options = CbmsOptionsHelper.GetCbmsOptions(configuration);
 
-        var clientSecret = configuration?["Cbms:ClientSecret"]
-            ?? Environment.GetEnvironmentVariable("Cbms__ClientSecret");
-
-        if (string.IsNullOrWhiteSpace(clientId) || string.IsNullOrWhiteSpace(clientSecret))
+        if (!options.IsConfigured)
         {
             builder.AddCheck(
                 CheckName,
                 new AlwaysUnhealthyHealthCheck(
                     "CBMS credentials are not configured. " +
-                    "Set Cbms:ClientId and Cbms:ClientSecret in appsettings or Cbms__ClientId and Cbms__ClientSecret environment variables."),
+                    "Set Cbms:ClientId and Cbms:ClientSecret in appsettings or Cbms__ClientId and Cbms__ClientSecret environment variables. " +
+                    "Or set Cbms:UseMockResponses=true for local development with mock responses."),
                 HealthStatus.Unhealthy,
                 ["external-api", "co"]);
             return;
         }
 
-        var apiBaseUrl = configuration?["Cbms:ApiBaseUrl"]
-            ?? Environment.GetEnvironmentVariable("Cbms__ApiBaseUrl")
-            ?? CbmsDefaults.SandboxApiBaseUrl;
-
-        var tokenEndpointUrl = configuration?["Cbms:TokenEndpointUrl"]
-            ?? Environment.GetEnvironmentVariable("Cbms__TokenEndpointUrl")
-            ?? CbmsDefaults.SandboxTokenEndpointUrl;
+        var effectiveClientId = options.UseMockResponses ? "mock-client-id" : options.ClientId;
+        var effectiveClientSecret = options.UseMockResponses ? "mock-client-secret" : options.ClientSecret;
+        var handler = options.UseMockResponses ? new MockCbmsHttpHandler() : null;
 
         builder.AddCheck(
             CheckName,
-            new CbmsApiHealthCheck(clientId, clientSecret, apiBaseUrl, tokenEndpointUrl),
+            new CbmsApiHealthCheck(effectiveClientId, effectiveClientSecret, options.ApiBaseUrl, options.TokenEndpointUrl, handler),
             HealthStatus.Unhealthy,
             ["external-api", "co"]);
     }

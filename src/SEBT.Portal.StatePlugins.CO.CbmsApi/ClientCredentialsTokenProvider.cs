@@ -89,7 +89,13 @@ public class ClientCredentialsTokenProvider : IAccessTokenProvider
             new[] { new KeyValuePair<string, string>("grant_type", "client_credentials") });
 
         using var response = await _httpClient.SendAsync(request, cancellationToken);
-        response.EnsureSuccessStatusCode();
+
+        if (!response.IsSuccessStatusCode)
+        {
+            var body = await response.Content.ReadAsStringAsync(cancellationToken);
+            throw new HttpRequestException(
+                $"Token request failed {(int)response.StatusCode} {response.ReasonPhrase}: {body}");
+        }
 
         using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
         using var json = await JsonDocument.ParseAsync(stream, cancellationToken: cancellationToken);
@@ -97,8 +103,26 @@ public class ClientCredentialsTokenProvider : IAccessTokenProvider
         var root = json.RootElement;
         var accessToken = root.GetProperty("access_token").GetString()
             ?? throw new InvalidOperationException("Token response missing access_token.");
-        var expiresIn = root.GetProperty("expires_in").GetInt32();
+        var expiresIn = ParseExpiresIn(root.GetProperty("expires_in"));
 
         return (accessToken, expiresIn);
+    }
+
+    /// <summary>
+    /// Default expiry in seconds when the token response omits or provides an invalid expires_in.
+    /// Using a sensible default avoids a refresh loop that would occur if we returned 0.
+    /// </summary>
+    private const int DefaultExpiresInSeconds = 3600;
+
+    private static int ParseExpiresIn(JsonElement element)
+    {
+        if (element.ValueKind == JsonValueKind.Number && element.TryGetInt32(out var n) && n > 0)
+            return n;
+        if (element.ValueKind == JsonValueKind.Number)
+            return DefaultExpiresInSeconds; // Number but not positive (e.g. 0)
+        var s = element.GetString();
+        if (int.TryParse(s, out var parsed) && parsed > 0)
+            return parsed;
+        return DefaultExpiresInSeconds;
     }
 }
