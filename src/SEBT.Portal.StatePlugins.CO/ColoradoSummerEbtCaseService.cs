@@ -6,7 +6,6 @@ using SEBT.Portal.StatePlugins.CO.CbmsApi;
 using SEBT.Portal.StatePlugins.CO.CbmsApi.Mocks;
 using SEBT.Portal.StatePlugins.CO.CbmsApi.Models;
 using SEBT.Portal.StatesPlugins.Interfaces;
-using SEBT.Portal.StatesPlugins.Interfaces.Data.Cases;
 using SEBT.Portal.StatesPlugins.Interfaces.Models;
 using SEBT.Portal.StatesPlugins.Interfaces.Models.Household;
 
@@ -31,41 +30,6 @@ public class ColoradoSummerEbtCaseService : ISummerEbtCaseService
         _configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
         _logger = logger;
     }
-
-    /// <summary>
-    /// Returns Summer EBT cases for the household identified by the given ID.
-    /// </summary>
-    /// <param name="householdId">For CO, the guardian email (household identifier).</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
-    /// <returns>List of Summer EBT cases, or empty when not found or not configured.</returns>
-    public async Task<IList<SummerEbtCase>> GetHouseholdCasesAsync(
-        string? householdId,
-        CancellationToken cancellationToken = default)
-    {
-        if (string.IsNullOrWhiteSpace(householdId))
-        {
-            _logger?.LogDebug("No household ID provided; returning empty cases.");
-            return new List<SummerEbtCase>();
-        }
-
-        var piiVisibility = new PiiVisibility(IncludeAddress: true, IncludeEmail: true, IncludePhone: true);
-        var household = await GetHouseholdByGuardianEmailAsync(
-            householdId,
-            piiVisibility,
-            IdentityAssuranceLevel.None,
-            cancellationToken).ConfigureAwait(false);
-
-        return household?.SummerEbtCases ?? new List<SummerEbtCase>();
-    }
-
-    /// <summary>
-    /// Returns Summer EBT cases for the current household.  
-    /// Accepts Type 'Phone'; Email is not supported.
-    /// <see cref="GetHouseholdCasesAsync"/> with the resolved email when available.
-    /// </summary>
-    /// <returns>Empty list when no household identifier is available.</returns>
-    public Task<IList<SummerEbtCase>> GetHouseholdCases() =>
-        GetHouseholdCasesAsync(householdId: null);
 
     /// <inheritdoc />
     public async Task<HouseholdData?> GetHouseholdByIdentifierAsync(

@@ -1,7 +1,6 @@
 using Microsoft.Extensions.Configuration;
 using SEBT.Portal.StatePlugins.CO;
 using SEBT.Portal.StatePlugins.CO.CbmsApi;
-using SEBT.Portal.StatesPlugins.Interfaces.Data.Cases;
 using SEBT.Portal.StatesPlugins.Interfaces.Models;
 using SEBT.Portal.StatesPlugins.Interfaces.Models.Household;
 
@@ -41,42 +40,6 @@ public class ColoradoSummerEbtCaseServiceTests
             "test@example.com", piiVisibility, IdentityAssuranceLevel.None);
 
         Assert.Null(result);
-    }
-
-    [Fact]
-    public async Task GetHouseholdCases_returns_empty_when_no_household_id()
-    {
-        var service = new ColoradoSummerEbtCaseService(CreateEmptyConfiguration());
-
-        var result = await service.GetHouseholdCases();
-
-        Assert.NotNull(result);
-        Assert.Empty(result);
-    }
-
-    [Fact]
-    public async Task GetHouseholdCasesAsync_with_email_returns_empty_CBMS_has_no_email_lookup()
-    {
-        var service = new ColoradoSummerEbtCaseService(CreateEmptyConfiguration());
-
-        var result = await service.GetHouseholdCasesAsync("guardian@example.com");
-
-        Assert.NotNull(result);
-        Assert.Empty(result);
-    }
-
-    [Fact]
-    public async Task GetHouseholdCasesAsync_with_null_or_empty_returns_empty()
-    {
-        var service = new ColoradoSummerEbtCaseService(CreateEmptyConfiguration());
-
-        var resultNull = await service.GetHouseholdCasesAsync(null);
-        var resultEmpty = await service.GetHouseholdCasesAsync("");
-
-        Assert.NotNull(resultNull);
-        Assert.Empty(resultNull);
-        Assert.NotNull(resultEmpty);
-        Assert.Empty(resultEmpty);
     }
 
     [Fact]

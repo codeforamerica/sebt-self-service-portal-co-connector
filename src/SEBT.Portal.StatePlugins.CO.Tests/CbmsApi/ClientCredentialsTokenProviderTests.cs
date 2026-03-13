@@ -38,7 +38,6 @@ public class ClientCredentialsTokenProviderTests
 
     private static async Task<string> LoadGetAccountDetailsMockAsync()
     {
-        var assembly = typeof(MockCbmsHttpHandler).Assembly;
         var resourceName = "SEBT.Portal.StatePlugins.CO.CbmsApi.TestData.CbmsMocks.get-account-details.json";
         var apiAssembly = typeof(CbmsSebtApiClient).Assembly;
         await using var stream = apiAssembly.GetManifestResourceStream(resourceName)
