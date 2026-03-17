@@ -5,17 +5,17 @@ namespace SEBT.Portal.StatePlugins.CO.Tests;
 public class ColoradoHealthCheckServiceTests
 {
     [Fact]
-    public async Task AlwaysUnhealthyHealthCheck_ReturnsUnhealthy_WithGivenMessage()
+    public async Task AlwaysDegradedHealthCheck_ReturnsDegraded_WithGivenMessage()
     {
         // Arrange
         var message = "CBMS credentials are not configured.";
-        var check = new AlwaysUnhealthyHealthCheck(message);
+        var check = new AlwaysDegradedHealthCheck(message);
 
         // Act
         var result = await check.CheckHealthAsync(new HealthCheckContext());
 
         // Assert
-        Assert.Equal(HealthStatus.Unhealthy, result.Status);
+        Assert.Equal(HealthStatus.Degraded, result.Status);
         Assert.Equal(message, result.Description);
     }
 }

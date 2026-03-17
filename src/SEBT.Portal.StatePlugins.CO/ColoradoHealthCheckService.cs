@@ -31,10 +31,10 @@ public class ColoradoHealthCheckService([Import(AllowDefault = true)] IConfigura
         {
             builder.AddCheck(
                 CheckName,
-                new AlwaysUnhealthyHealthCheck(
+                new AlwaysDegradedHealthCheck(
                     "CBMS credentials are not configured. " +
                     "Set Cbms:ClientId and Cbms:ClientSecret in appsettings or Cbms__ClientId and Cbms__ClientSecret environment variables."),
-                HealthStatus.Unhealthy,
+                HealthStatus.Degraded,
                 ["external-api", "co"]);
             return;
         }
