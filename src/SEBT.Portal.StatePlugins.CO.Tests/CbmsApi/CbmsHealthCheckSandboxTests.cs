@@ -13,7 +13,7 @@ public class CbmsHealthCheckSandboxTests(CbmsSandboxFixture fixture)
 {
     private const string SkipReason =
         "CBMS sandbox credentials not configured. " +
-        "Set Cbms:SandboxClientId and Cbms:SandboxClientSecret via user-secrets or environment variables.";
+        "Set Cbms:ClientId and Cbms:ClientSecret via user-secrets or environment variables.";
 
     [SkippableFact]
     public async Task CbmsApiHealthCheck_ReturnsHealthy_WhenSandboxIsReachable()
@@ -26,8 +26,8 @@ public class CbmsHealthCheckSandboxTests(CbmsSandboxFixture fixture)
             .Build();
 
         var check = new CbmsApiHealthCheck(
-            configuration["Cbms:SandboxClientId"]!,
-            configuration["Cbms:SandboxClientSecret"]!,
+            configuration["Cbms:ClientId"]!,
+            configuration["Cbms:ClientSecret"]!,
             CbmsDefaults.SandboxApiBaseUrl,
             CbmsDefaults.SandboxTokenEndpointUrl);
 

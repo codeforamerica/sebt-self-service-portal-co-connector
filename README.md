@@ -12,17 +12,17 @@ The CI workflow uses `GITHUB_TOKEN` (provided automatically) to check out the [s
 
 ### Optional: CBMS sandbox integration tests
 
-The CI workflow is designed to pass CBMS API sandbox credentials from repository secrets. To enable these tests, add these as GitHub Actions **repository secrets**:
+The CI workflow passes CBMS API credentials from repository secrets. To enable these tests, add these as GitHub Actions **repository secrets**:
 
 | Secret | Description |
 |--------|-------------|
-| `CBMS_SANDBOX_CLIENT_ID` | OAuth client ID for the CBMS sandbox (UAT) environment |
-| `CBMS_SANDBOX_CLIENT_SECRET` | OAuth client secret for the CBMS sandbox (UAT) environment |
+| `CBMS_CLIENT_ID` | OAuth client ID for the CBMS environment |
+| `CBMS_CLIENT_SECRET` | OAuth client secret for the CBMS environment |
 
 For local development, use .NET user secrets instead:
 
 ```bash
 cd src/SEBT.Portal.StatePlugins.CO.Tests
-dotnet user-secrets set "Cbms:SandboxClientId" "<id>"
-dotnet user-secrets set "Cbms:SandboxClientSecret" "<secret>"
+dotnet user-secrets set "Cbms:ClientId" "<id>"
+dotnet user-secrets set "Cbms:ClientSecret" "<secret>"
 ```
