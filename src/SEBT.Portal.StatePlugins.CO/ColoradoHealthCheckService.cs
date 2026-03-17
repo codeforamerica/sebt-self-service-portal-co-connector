@@ -50,7 +50,7 @@ public class ColoradoHealthCheckService([Import(AllowDefault = true)] IConfigura
         builder.AddCheck(
             CheckName,
             new CbmsApiHealthCheck(clientId, clientSecret, apiBaseUrl, tokenEndpointUrl),
-            HealthStatus.Unhealthy,
+            HealthStatus.Degraded,
             ["external-api", "co"]);
     }
 }

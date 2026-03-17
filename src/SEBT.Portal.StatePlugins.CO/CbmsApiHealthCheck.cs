@@ -26,7 +26,7 @@ internal class CbmsApiHealthCheck(
         }
         catch (Exception ex)
         {
-            return HealthCheckResult.Unhealthy(ex.Message, ex);
+            return HealthCheckResult.Degraded(ex.Message, ex);
         }
     }
 }
