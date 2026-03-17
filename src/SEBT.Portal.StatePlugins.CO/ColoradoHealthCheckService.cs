@@ -2,7 +2,6 @@ using System.Composition;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
-using SEBT.Portal.StatePlugins.CO.CbmsApi;
 using SEBT.Portal.StatesPlugins.Interfaces;
 
 namespace SEBT.Portal.StatePlugins.CO;
@@ -40,12 +39,22 @@ public class ColoradoHealthCheckService([Import(AllowDefault = true)] IConfigura
         }
 
         var apiBaseUrl = configuration?["Cbms:ApiBaseUrl"]
-            ?? Environment.GetEnvironmentVariable("Cbms__ApiBaseUrl")
-            ?? CbmsDefaults.SandboxApiBaseUrl;
+            ?? Environment.GetEnvironmentVariable("Cbms__ApiBaseUrl");
 
         var tokenEndpointUrl = configuration?["Cbms:TokenEndpointUrl"]
-            ?? Environment.GetEnvironmentVariable("Cbms__TokenEndpointUrl")
-            ?? CbmsDefaults.SandboxTokenEndpointUrl;
+            ?? Environment.GetEnvironmentVariable("Cbms__TokenEndpointUrl");
+
+        if (string.IsNullOrWhiteSpace(apiBaseUrl) || string.IsNullOrWhiteSpace(tokenEndpointUrl))
+        {
+            builder.AddCheck(
+                CheckName,
+                new AlwaysDegradedHealthCheck(
+                    "CBMS API endpoints are not configured. " +
+                    "Set Cbms:ApiBaseUrl and Cbms:TokenEndpointUrl in appsettings or Cbms__ApiBaseUrl and Cbms__TokenEndpointUrl environment variables."),
+                HealthStatus.Degraded,
+                ["external-api", "co"]);
+            return;
+        }
 
         builder.AddCheck(
             CheckName,
