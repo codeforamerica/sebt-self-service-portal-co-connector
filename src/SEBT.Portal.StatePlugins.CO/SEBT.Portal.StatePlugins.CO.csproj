@@ -23,7 +23,13 @@
         <RestoreForce>true</RestoreForce>
     </PropertyGroup>
 
+    <!-- When state-connector repo is alongside this repo, use project reference so we build against current Interfaces source. -->
+    <PropertyGroup>
+        <StateConnectorInterfacesProject Condition="'$(StateConnectorInterfacesProject)' == ''">$(MSBuildThisFileDirectory)../../../sebt-self-service-portal-state-connector/src/SEBT.Portal.StatesPlugins.Interfaces/SEBT.Portal.StatesPlugins.Interfaces.csproj</StateConnectorInterfacesProject>
+    </PropertyGroup>
+
     <ItemGroup>
+        <PackageReference Include="SEBT.Portal.StatesPlugins.Interfaces" Version="0.0.1-dev-*" Condition="!Exists('$(StateConnectorInterfacesProject)')" />
         <InternalsVisibleTo Include="SEBT.Portal.StatePlugins.CO.Tests" />
     </ItemGroup>
 
@@ -34,6 +40,10 @@
         <PackageReference Include="System.Composition" Version="10.0.1" />
         <!-- Use package only when sibling Interfaces project is not present -->
         <PackageReference Include="SEBT.Portal.StatesPlugins.Interfaces" Version="0.0.1-*" Condition="!Exists('$(InterfacesProjectPath)')" />
+    </ItemGroup>
+
+    <ItemGroup Condition="Exists('$(StateConnectorInterfacesProject)')">
+        <ProjectReference Include="$(StateConnectorInterfacesProject)" />
     </ItemGroup>
 
     <ItemGroup>

@@ -16,7 +16,7 @@ public class CbmsSandboxTests(CbmsSandboxFixture fixture)
 {
     private const string SkipReason =
         "CBMS sandbox credentials not configured. " +
-        "Set Cbms:SandboxClientId and Cbms:SandboxClientSecret via user-secrets or environment variables.";
+        "Set Cbms:ClientId and Cbms:ClientSecret via user-secrets or environment variables.";
 
     [SkippableFact]
     public async Task Ping_ReturnsSuccessResponse()

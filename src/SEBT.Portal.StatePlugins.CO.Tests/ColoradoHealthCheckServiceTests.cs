@@ -8,24 +8,24 @@ namespace SEBT.Portal.StatePlugins.CO.Tests;
 public class ColoradoHealthCheckServiceTests
 {
     [Fact]
-    public async Task AlwaysUnhealthyHealthCheck_ReturnsUnhealthy_WithGivenMessage()
+    public async Task AlwaysDegradedHealthCheck_ReturnsDegraded_WithGivenMessage()
     {
         // Arrange
         var message = "CBMS credentials are not configured.";
-        var check = new AlwaysUnhealthyHealthCheck(message);
+        var check = new AlwaysDegradedHealthCheck(message);
 
         // Act
         var result = await check.CheckHealthAsync(new HealthCheckContext());
 
         // Assert
-        Assert.Equal(HealthStatus.Unhealthy, result.Status);
+        Assert.Equal(HealthStatus.Degraded, result.Status);
         Assert.Equal(message, result.Description);
     }
 
     private const string CbmsCheckName = "co-cbms-api-ping";
 
     [Fact]
-    public async Task ConfigureHealthChecks_registers_AlwaysUnhealthyHealthCheck_when_not_configured()
+    public async Task ConfigureHealthChecks_registers_degraded_check_when_not_configured()
     {
         var services = new ServiceCollection();
         services.AddLogging();
@@ -47,7 +47,7 @@ public class ColoradoHealthCheckServiceTests
         var healthCheck = provider.GetRequiredService<HealthCheckService>();
         var result = await healthCheck.CheckHealthAsync();
 
-        Assert.Equal(HealthStatus.Unhealthy, result.Status);
+        Assert.Equal(HealthStatus.Degraded, result.Status);
         var entry = result.Entries[CbmsCheckName];
         Assert.Contains("CBMS credentials are not configured", entry.Description);
     }

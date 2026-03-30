@@ -14,11 +14,11 @@ namespace SEBT.Portal.StatePlugins.CO.Tests.CbmsApi;
 /// Configure credentials via:
 /// <list type="bullet">
 ///   <item>User secrets:
-///     <c>dotnet user-secrets set "Cbms:SandboxClientId" "&lt;id&gt;"</c> and
-///     <c>dotnet user-secrets set "Cbms:SandboxClientSecret" "&lt;secret&gt;"</c>
+///     <c>dotnet user-secrets set "Cbms:ClientId" "&lt;id&gt;"</c> and
+///     <c>dotnet user-secrets set "Cbms:ClientSecret" "&lt;secret&gt;"</c>
 ///   </item>
 ///   <item>Environment variables:
-///     <c>Cbms__SandboxClientId</c> and <c>Cbms__SandboxClientSecret</c>
+///     <c>Cbms__ClientId</c> and <c>Cbms__ClientSecret</c>
 ///   </item>
 /// </list>
 /// Enable mock responses (no real API calls): <c>Cbms:UseMockResponses=true</c> or <c>Cbms__UseMockResponses=true</c>
@@ -57,8 +57,8 @@ public class CbmsSandboxFixture : IAsyncLifetime
             return Task.CompletedTask;
         }
 
-        var clientId = configuration["Cbms:SandboxClientId"];
-        var clientSecret = configuration["Cbms:SandboxClientSecret"];
+        var clientId = configuration["Cbms:ClientId"];
+        var clientSecret = configuration["Cbms:ClientSecret"];
 
         if (string.IsNullOrWhiteSpace(clientId) || string.IsNullOrWhiteSpace(clientSecret))
         {

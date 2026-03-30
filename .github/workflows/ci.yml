@@ -88,7 +88,7 @@ jobs:
 
       - name: Test
         env:
-          Cbms__SandboxClientId: ${{ secrets.CBMS_SANDBOX_CLIENT_ID }}
-          Cbms__SandboxClientSecret: ${{ secrets.CBMS_SANDBOX_CLIENT_SECRET }}
+          Cbms__ClientId: ${{ secrets.CBMS_CLIENT_ID }}
+          Cbms__ClientSecret: ${{ secrets.CBMS_CLIENT_SECRET }}
           Cbms__UseMockResponses: "true"
         run: dotnet test --no-build -c Release
