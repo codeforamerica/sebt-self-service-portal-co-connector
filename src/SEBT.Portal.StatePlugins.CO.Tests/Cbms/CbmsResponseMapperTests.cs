@@ -106,15 +106,16 @@ public class CbmsResponseMapperTests
     }
 
     [Theory]
-    [InlineData("PENDING", "P", ApplicationStatus.Pending)]
-    [InlineData("APPROVED", "A", ApplicationStatus.Approved)]
-    [InlineData("DENIED", "D", ApplicationStatus.Denied)]
-    [InlineData("CANCELLED", "C", ApplicationStatus.Cancelled)]
-    [InlineData("unknown", null, ApplicationStatus.Unknown)]
-    public void MapToHouseholdData_maps_application_status(string? sebtAppSts, string? shortCode, ApplicationStatus expected)
+    [InlineData("PENDING", ApplicationStatus.Pending)]
+    [InlineData("APPROVED", ApplicationStatus.Approved)]
+    [InlineData("DENIED", ApplicationStatus.Denied)]
+    [InlineData("CANCELLED", ApplicationStatus.Cancelled)]
+    [InlineData("UNDER REVIEW", ApplicationStatus.UnderReview)]
+    [InlineData("unknown", ApplicationStatus.Unknown)]
+    public void MapToHouseholdData_maps_application_status(string sebtAppSts, ApplicationStatus expected)
     {
         var student = CreateMinimalStudent();
-        student.SebtAppSts = sebtAppSts ?? shortCode;
+        student.SebtAppSts = sebtAppSts;
         var response = new GetAccountDetailsResponse
         {
             StdntEnrollDtls = new List<GetAccountStudentDetail> { student }
@@ -128,15 +129,15 @@ public class CbmsResponseMapperTests
     }
 
     [Theory]
-    [InlineData("REQUESTED", "R", CardStatus.Requested)]
-    [InlineData("MAILED", "M", CardStatus.Mailed)]
-    [InlineData("ACTIVE", "A", CardStatus.Active)]
-    [InlineData("DEACTIVATED", "D", CardStatus.Deactivated)]
-    [InlineData("unknown", null, CardStatus.Unknown)]
-    public void MapToHouseholdData_maps_card_status_in_applications(string? ebtCardSts, string? shortCode, CardStatus expected)
+    [InlineData("REQUESTED", CardStatus.Requested)]
+    [InlineData("MAILED", CardStatus.Mailed)]
+    [InlineData("ACTIVE", CardStatus.Active)]
+    [InlineData("DEACTIVATED", CardStatus.Deactivated)]
+    [InlineData("unknown", CardStatus.Unknown)]
+    public void MapToHouseholdData_maps_card_status_in_applications(string ebtCardSts, CardStatus expected)
     {
         var student = CreateMinimalStudent();
-        student.EbtCardSts = ebtCardSts ?? shortCode;
+        student.EbtCardSts = ebtCardSts;
         var response = new GetAccountDetailsResponse
         {
             StdntEnrollDtls = new List<GetAccountStudentDetail> { student }
@@ -147,24 +148,6 @@ public class CbmsResponseMapperTests
 
         var app = Assert.Single(result.Applications);
         Assert.Equal(expected, app.CardStatus);
-    }
-
-    [Theory]
-    [InlineData("UNDER REVIEW", "U", ApplicationStatus.UnderReview)]
-    public void MapToHouseholdData_maps_application_status_under_review(string? sebtAppSts, string? shortCode, ApplicationStatus expected)
-    {
-        var student = CreateMinimalStudent();
-        student.SebtAppSts = sebtAppSts ?? shortCode;
-        var response = new GetAccountDetailsResponse
-        {
-            StdntEnrollDtls = new List<GetAccountStudentDetail> { student }
-        };
-        var piiVisibility = new PiiVisibility(IncludeAddress: false, IncludeEmail: false, IncludePhone: false);
-
-        var result = CbmsResponseMapper.MapToHouseholdData(response, "8185551234", piiVisibility);
-
-        var @case = Assert.Single(result.SummerEbtCases);
-        Assert.Equal(expected, @case.ApplicationStatus);
     }
 
     [Fact]

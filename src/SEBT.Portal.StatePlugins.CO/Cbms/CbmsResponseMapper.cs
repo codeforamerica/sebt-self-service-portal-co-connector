@@ -9,6 +9,9 @@ namespace SEBT.Portal.StatePlugins.CO.Cbms;
 /// <summary>
 /// Maps CBMS Get Account Details response to the portal's HouseholdData model.
 /// </summary>
+/// <remarks>
+/// <c>sebtAppSts</c> and <c>ebtCardSts</c> are interpreted as the full-word values shown in the CBMS OpenAPI examples (case-insensitive).
+/// </remarks>
 internal static class CbmsResponseMapper
 {
     public static HouseholdData MapToHouseholdData(
@@ -113,11 +116,11 @@ internal static class CbmsResponseMapper
         if (string.IsNullOrEmpty(sebtAppSts)) return ApplicationStatus.Unknown;
         return sebtAppSts.ToUpperInvariant() switch
         {
-            "PENDING" or "P" => ApplicationStatus.Pending,
-            "APPROVED" or "A" => ApplicationStatus.Approved,
-            "DENIED" or "D" => ApplicationStatus.Denied,
-            "UNDER REVIEW" or "U" => ApplicationStatus.UnderReview,
-            "CANCELLED" or "C" => ApplicationStatus.Cancelled,
+            "PENDING" => ApplicationStatus.Pending,
+            "APPROVED" => ApplicationStatus.Approved,
+            "DENIED" => ApplicationStatus.Denied,
+            "UNDER REVIEW" => ApplicationStatus.UnderReview,
+            "CANCELLED" => ApplicationStatus.Cancelled,
             _ => ApplicationStatus.Unknown
         };
     }
@@ -127,10 +130,10 @@ internal static class CbmsResponseMapper
         if (string.IsNullOrEmpty(ebtCardSts)) return CardStatus.Unknown;
         return ebtCardSts.ToUpperInvariant() switch
         {
-            "REQUESTED" or "R" => CardStatus.Requested,
-            "MAILED" or "M" => CardStatus.Mailed,
-            "ACTIVE" or "A" => CardStatus.Active,
-            "DEACTIVATED" or "D" => CardStatus.Deactivated,
+            "REQUESTED" => CardStatus.Requested,
+            "MAILED" => CardStatus.Mailed,
+            "ACTIVE" => CardStatus.Active,
+            "DEACTIVATED" => CardStatus.Deactivated,
             _ => CardStatus.Unknown
         };
     }
