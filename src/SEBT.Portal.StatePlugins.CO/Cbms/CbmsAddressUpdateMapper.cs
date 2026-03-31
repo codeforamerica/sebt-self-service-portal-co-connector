@@ -1,0 +1,102 @@
+using SEBT.Portal.StatePlugins.CO.CbmsApi.Models;
+using HouseholdAddress = SEBT.Portal.StatesPlugins.Interfaces.Models.Household.Address;
+
+namespace SEBT.Portal.StatePlugins.CO.Cbms;
+
+/// <summary>
+/// Maps portal <see cref="HouseholdAddress"/> and account context into CBMS <see cref="UpdateStudentDetailsRequest"/>.
+/// </summary>
+internal static class CbmsAddressUpdateMapper
+{
+    /// <summary>
+    /// Builds a CBMS PATCH body: required <c>addr</c> plus identifiers from the student row returned by get-account-details.
+    /// </summary>
+    public static UpdateStudentDetailsRequest ToUpdateStudentDetailsRequest(
+        HouseholdAddress portalAddress,
+        GetAccountStudentDetail studentRow)
+    {
+        ArgumentNullException.ThrowIfNull(portalAddress);
+        ArgumentNullException.ThrowIfNull(studentRow);
+
+        return new UpdateStudentDetailsRequest
+        {
+            SebtChldId = studentRow.SebtChldId,
+            SebtAppId = studentRow.SebtAppId,
+            Addr = ToCbmsAddress(portalAddress),
+            GurdFstNm = studentRow.GurdFstNm,
+            GurdLstNm = studentRow.GurdLstNm,
+            GurdEmailAddr = studentRow.GurdEmailAddr
+        };
+    }
+
+    /// <summary>
+    /// Maps portal address fields to CBMS <c>addr</c> (addrLn1, addrLn2, city, state, zip, zip4).
+    /// </summary>
+    public static Address ToCbmsAddress(HouseholdAddress portalAddress)
+    {
+        ArgumentNullException.ThrowIfNull(portalAddress);
+
+        var (zip, zip4) = SplitPostalCode(portalAddress.PostalCode);
+        return new Address
+        {
+            AddrLn1 = portalAddress.StreetAddress1,
+            AddrLn2 = portalAddress.StreetAddress2,
+            Cty = portalAddress.City,
+            StaCd = portalAddress.State,
+            Zip = zip,
+            Zip4 = zip4
+        };
+    }
+
+    /// <summary>
+    /// Validates that the portal supplied enough address data for CBMS (required addr in spec).
+    /// </summary>
+    public static bool TryValidatePortalAddress(HouseholdAddress address, out string? error)
+    {
+        ArgumentNullException.ThrowIfNull(address);
+
+        if (string.IsNullOrWhiteSpace(address.StreetAddress1))
+        {
+            error = "StreetAddress1 is required.";
+            return false;
+        }
+
+        if (string.IsNullOrWhiteSpace(address.City))
+        {
+            error = "City is required.";
+            return false;
+        }
+
+        if (string.IsNullOrWhiteSpace(address.State))
+        {
+            error = "State is required.";
+            return false;
+        }
+
+        if (string.IsNullOrWhiteSpace(address.PostalCode))
+        {
+            error = "PostalCode is required.";
+            return false;
+        }
+
+        error = null;
+        return true;
+    }
+
+    internal static (string? Zip, string? Zip4) SplitPostalCode(string? postalCode)
+    {
+        if (string.IsNullOrWhiteSpace(postalCode))
+            return (null, null);
+
+        var trimmed = postalCode.Trim();
+        var dash = trimmed.IndexOf('-');
+        if (dash >= 0)
+        {
+            var zip = trimmed[..dash].Trim();
+            var zip4 = trimmed[(dash + 1)..].Trim();
+            return (string.IsNullOrEmpty(zip) ? null : zip, string.IsNullOrEmpty(zip4) ? null : zip4);
+        }
+
+        return (trimmed, null);
+    }
+}
