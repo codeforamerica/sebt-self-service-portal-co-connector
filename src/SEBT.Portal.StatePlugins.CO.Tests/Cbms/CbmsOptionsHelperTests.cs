@@ -9,8 +9,14 @@ public class CbmsOptionsHelperTests
     [Fact]
     public void GetCbmsOptions_empty_config_returns_IsConfigured_false()
     {
+        // Blank credentials explicitly: CI (and local dev) may set Cbms__* env vars; helper falls back to those.
         var config = new ConfigurationBuilder()
-            .AddInMemoryCollection(new Dictionary<string, string?> { ["Cbms:UseMockResponses"] = "false" })
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["Cbms:UseMockResponses"] = "false",
+                ["Cbms:ClientId"] = "",
+                ["Cbms:ClientSecret"] = ""
+            })
             .Build();
         var options = CbmsOptionsHelper.GetCbmsOptions(config);
 
