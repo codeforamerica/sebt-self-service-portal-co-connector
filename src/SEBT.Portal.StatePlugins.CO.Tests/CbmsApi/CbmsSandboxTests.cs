@@ -37,14 +37,14 @@ public class CbmsSandboxTests(CbmsSandboxFixture fixture)
         {
             new()
             {
-                StdFirstName = "Test",
-                StdLastName = "Student",
-                StdDob = "2015-01-01",
-                CbmsCsId = "C00001",
-                StdSasId = "S00001",
-                StdSchlCd = "SCH01",
+                StdFirstName = "REON",
+                StdLastName = "NEBADA",
+                StdDob = "2010-07-13",
+                CbmsCsId = "",
+                StdSasId = "",
+                StdSchlCd = "",
                 SebtYear = "2025",
-                StdReqInd = "REQ-001",
+                StdReqInd = "1",
             },
         };
 
@@ -54,9 +54,10 @@ public class CbmsSandboxTests(CbmsSandboxFixture fixture)
     }
 
     [SkippableFact]
-    public async Task GetAccountDetails_ReturnsResponse()
+    public async Task GetAccountDetails_ReturnsValidResponse_WhenSandboxIsReachable()
     {
         Skip.If(!fixture.CredentialsConfigured, SkipReason);
+        Skip.If(fixture.UseMockResponses, "Skipped when using mock responses; this test verifies the real sandbox response.");
 
         var request = new GetAccountDetailsRequest
         {
@@ -65,6 +66,29 @@ public class CbmsSandboxTests(CbmsSandboxFixture fixture)
 
         var response = await fixture.Client!.Sebt.GetAccountDetails.PostAsync(request);
 
-        Assert.NotNull(response);
+        // Sandbox may return null or empty when no account exists for the phone
+        if (response is null || response.StdntEnrollDtls is null || response.StdntEnrollDtls.Count == 0)
+        {
+            Skip.If(true, "Sandbox has no test data for phone 8185558437; cannot verify response structure.");
+        }
+
+        Assert.All(response!.StdntEnrollDtls!, student =>
+        {
+            Assert.NotNull(student);
+            // Sandbox may return partial records; verify core identifiers when present
+            if (!string.IsNullOrEmpty(student.SebtChldId))
+                Assert.False(string.IsNullOrEmpty(student.SebtAppId), "Student with SebtChldId must have SebtAppId.");
+            // When StdDob is present, it must be parseable as a date (YYYY-MM-DD per spec)
+            if (!string.IsNullOrEmpty(student.StdDob))
+                Assert.True(DateOnly.TryParse(student.StdDob, out _), $"StdDob must be a valid date, got: {student.StdDob}");
+            // When date fields are present, they must be parseable
+            if (!string.IsNullOrEmpty(student.BenAvalDt))
+                Assert.True(DateOnly.TryParse(student.BenAvalDt, out _), $"BenAvalDt must be a valid date, got: {student.BenAvalDt}");
+            if (!string.IsNullOrEmpty(student.BenExpDt))
+                Assert.True(DateOnly.TryParse(student.BenExpDt, out _), $"BenExpDt must be a valid date, got: {student.BenExpDt}");
+            // EbtCardLastFour when present should be 4 digits
+            if (!string.IsNullOrEmpty(student.EbtCardLastFour))
+                Assert.Matches("^[0-9]{4}$", student.EbtCardLastFour);
+        });
     }
 }

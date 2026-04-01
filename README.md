@@ -12,7 +12,7 @@ The CI workflow uses `GITHUB_TOKEN` (provided automatically) to check out the [s
 
 ### Optional: CBMS sandbox integration tests
 
-The CI workflow passes CBMS API credentials from repository secrets. To enable these tests, add these as GitHub Actions **repository secrets**:
+CI runs CBMS integration tests with mock responses by default, so no secrets are required for the build to pass (sandbox health checks that require the real API are skipped). To exercise the real sandbox in CI, add these as GitHub Actions **repository secrets** and set `Cbms__UseMockResponses=false` in the workflow:
 
 | Secret | Description |
 |--------|-------------|
@@ -26,3 +26,20 @@ cd src/SEBT.Portal.StatePlugins.CO.Tests
 dotnet user-secrets set "Cbms:ClientId" "<id>"
 dotnet user-secrets set "Cbms:ClientSecret" "<secret>"
 ```
+
+### Optional: Run integration tests with mock responses
+
+To run the CBMS integration tests without real credentials or network access, enable mock responses:
+
+```bash
+cd src/SEBT.Portal.StatePlugins.CO.Tests
+dotnet user-secrets set "Cbms:UseMockResponses" "true"
+```
+
+Or use an environment variable: `Cbms__UseMockResponses=true`
+
+### Local development with mock responses
+
+The same mock responses used in integration tests are available when running the host application. Set `Cbms:UseMockResponses=true` in your host's configuration or `Cbms__UseMockResponses=true` as an environment variable. The Colorado plugin will use mock CBMS API responses (you don't need the client_id/secrets for this to work).
+
+Mock response data lives in `src/SEBT.Portal.StatePlugins.CO.CbmsApi/TestData/CbmsMocks/` as JSON files. Edit those files to change mock scenarios without recompiling.

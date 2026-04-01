@@ -1,0 +1,35 @@
+{
+  "stdntEnrollDtls": [
+    {
+      "gurdFstNm": "Jane",
+      "gurdLstNm": "Smith",
+      "gurdPhnNm": "555-0123",
+      "gurdEmailAddr": "jane.smith@example.com",
+      "sebtYear": "2024",
+      "sebtAppId": "APP-556677",
+      "stdFstNm": "Johnny",
+      "stdLstNm": "Smith",
+      "stdDob": "2016-10-20",
+      "mtchCnfd": 100,
+      "stdntEligSts": "ENROLLED",
+      "sebtAppSts": "APPROVED",
+      "eligSrc": "DIRECT_CERT",
+      "sebtChldId": "C-990011",
+      "sebtChldCwin": "W123456789",
+      "addrLn1": "123 Maple Avenue",
+      "addrLn2": "Apt 4B",
+      "cty": "Denver",
+      "staCd": "CO",
+      "zip": "80202",
+      "zip4": "1234",
+      "ebtCardLastFour": "4422",
+      "benAvalDt": "2024-06-01",
+      "benExpDt": "2024-08-31",
+      "ebtCardSts": "ACTIVE",
+      "cardIssDt": "2024-05-20",
+      "cardBal": 120.50,
+      "cbmsCsId": "C8887727",
+      "dircEligSrc": "SNAP"
+    }
+  ]
+}
