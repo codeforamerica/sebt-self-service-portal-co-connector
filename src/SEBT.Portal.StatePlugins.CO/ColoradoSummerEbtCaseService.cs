@@ -16,7 +16,7 @@ namespace SEBT.Portal.StatePlugins.CO;
 public class ColoradoSummerEbtCaseService : ISummerEbtCaseService
 {
     private readonly IConfiguration _configuration;
-    private readonly ILogger<ColoradoSummerEbtCaseService>? _logger;
+    private readonly ILogger<ColoradoSummerEbtCaseService> _logger;
 
     private CbmsConnectionOptions? _cachedOptions;
     private CbmsSebtApiClient? _cachedClient;
@@ -25,10 +25,13 @@ public class ColoradoSummerEbtCaseService : ISummerEbtCaseService
     [ImportingConstructor]
     public ColoradoSummerEbtCaseService(
         [Import] IConfiguration configuration,
-        [Import(AllowDefault = true)] ILogger<ColoradoSummerEbtCaseService>? logger = null)
+        [Import] ILoggerFactory loggerFactory)
     {
-        _configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
-        _logger = logger;
+        ArgumentNullException.ThrowIfNull(configuration);
+        ArgumentNullException.ThrowIfNull(loggerFactory);
+
+        _configuration = configuration;
+        _logger = loggerFactory.CreateLogger<ColoradoSummerEbtCaseService>();
     }
 
     /// <inheritdoc />
@@ -45,6 +48,7 @@ public class ColoradoSummerEbtCaseService : ISummerEbtCaseService
         if (identifierType == HouseholdIdentifierType.Phone)
             return await GetHouseholdByPhoneAsync(identifierValue, piiVisibility, cancellationToken).ConfigureAwait(false);
 
+        _logger.LogWarning("No HouseholdIdentifierType found when calling GetHouseholdByIdentifierAsync");
         return null;
     }
 
@@ -55,7 +59,7 @@ public class ColoradoSummerEbtCaseService : ISummerEbtCaseService
         IdentityAssuranceLevel identityAssuranceLevel,
         CancellationToken cancellationToken = default)
     {
-        _logger?.LogDebug("CBMS does not support lookup by guardian email; returning null.");
+        _logger.LogDebug("CBMS does not support lookup by guardian email; returning null.");
         return Task.FromResult<HouseholdData?>(null);
     }
 
@@ -67,14 +71,14 @@ public class ColoradoSummerEbtCaseService : ISummerEbtCaseService
         var options = CbmsOptionsHelper.GetCbmsOptions(_configuration);
         if (!options.IsConfigured)
         {
-            _logger?.LogDebug("Cbms not configured; skipping phone lookup.");
+            _logger.LogWarning("Cbms not configured; skipping phone lookup.");
             return null;
         }
 
         var normalizedPhone = NormalizePhone(phoneNumber);
         if (string.IsNullOrEmpty(normalizedPhone))
         {
-            _logger?.LogWarning("Invalid or empty phone number for CBMS lookup.");
+            _logger.LogWarning("Invalid or empty phone number for CBMS lookup.");
             return null;
         }
 
@@ -95,7 +99,7 @@ public class ColoradoSummerEbtCaseService : ISummerEbtCaseService
         }
         catch (Exception ex)
         {
-            _logger?.LogError(ex, "CBMS Get Account Details failed for phone lookup.");
+            _logger.LogError(ex, "CBMS Get Account Details failed for phone lookup.");
             throw;
         }
     }
