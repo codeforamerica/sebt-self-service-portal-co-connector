@@ -34,7 +34,7 @@ public class ColoradoSummerEbtCaseServiceTests
     [Fact]
     public async Task GetHouseholdByGuardianEmailAsync_returns_null_CBMS_has_no_email_lookup()
     {
-        var service = new ColoradoSummerEbtCaseService(CreateEmptyConfiguration(), NullLogger<ColoradoSummerEbtCaseService>.Instance);
+        var service = new ColoradoSummerEbtCaseService(CreateEmptyConfiguration(), NullLoggerFactory.Instance);
         var piiVisibility = new PiiVisibility(IncludeAddress: false, IncludeEmail: false, IncludePhone: false);
 
         var result = await service.GetHouseholdByGuardianEmailAsync(
@@ -46,7 +46,7 @@ public class ColoradoSummerEbtCaseServiceTests
     [Fact]
     public async Task GetHouseholdByIdentifierAsync_returns_null_for_unsupported_identifier_type()
     {
-        var service = new ColoradoSummerEbtCaseService(CreateEmptyConfiguration(), NullLogger<ColoradoSummerEbtCaseService>.Instance);
+        var service = new ColoradoSummerEbtCaseService(CreateEmptyConfiguration(), NullLoggerFactory.Instance);
         var piiVisibility = new PiiVisibility(IncludeAddress: false, IncludeEmail: false, IncludePhone: false);
 
         var result = await service.GetHouseholdByIdentifierAsync(
@@ -61,7 +61,7 @@ public class ColoradoSummerEbtCaseServiceTests
     [Fact]
     public async Task GetHouseholdByIdentifierAsync_with_Phone_returns_null_when_Cbms_not_configured()
     {
-        var service = new ColoradoSummerEbtCaseService(CreateEmptyConfiguration(), NullLogger<ColoradoSummerEbtCaseService>.Instance);
+        var service = new ColoradoSummerEbtCaseService(CreateEmptyConfiguration(), NullLoggerFactory.Instance);
         var piiVisibility = new PiiVisibility(IncludeAddress: false, IncludeEmail: false, IncludePhone: false);
 
         var result = await service.GetHouseholdByIdentifierAsync(
@@ -76,7 +76,7 @@ public class ColoradoSummerEbtCaseServiceTests
     [Fact]
     public async Task GetHouseholdByIdentifierAsync_with_Phone_returns_household_when_UseMockResponses_and_valid_phone()
     {
-        var service = new ColoradoSummerEbtCaseService(CreateCbmsConfiguration(useMockResponses: true), NullLogger<ColoradoSummerEbtCaseService>.Instance);
+        var service = new ColoradoSummerEbtCaseService(CreateCbmsConfiguration(useMockResponses: true), NullLoggerFactory.Instance);
         var piiVisibility = new PiiVisibility(IncludeAddress: true, IncludeEmail: true, IncludePhone: true);
 
         var result = await service.GetHouseholdByIdentifierAsync(
@@ -106,7 +106,7 @@ public class ColoradoSummerEbtCaseServiceTests
                 ["Cbms:Return404ForGetAccountDetails"] = "true"
             })
             .Build();
-        var service = new ColoradoSummerEbtCaseService(config, NullLogger<ColoradoSummerEbtCaseService>.Instance);
+        var service = new ColoradoSummerEbtCaseService(config, NullLoggerFactory.Instance);
         var piiVisibility = new PiiVisibility(IncludeAddress: false, IncludeEmail: false, IncludePhone: false);
 
         var result = await service.GetHouseholdByIdentifierAsync(
@@ -126,7 +126,7 @@ public class ColoradoSummerEbtCaseServiceTests
     [InlineData("12345")]
     public async Task GetHouseholdByIdentifierAsync_with_Phone_returns_null_when_invalid_phone(string? phone)
     {
-        var service = new ColoradoSummerEbtCaseService(CreateCbmsConfiguration(), NullLogger<ColoradoSummerEbtCaseService>.Instance);
+        var service = new ColoradoSummerEbtCaseService(CreateCbmsConfiguration(), NullLoggerFactory.Instance);
         var piiVisibility = new PiiVisibility(IncludeAddress: false, IncludeEmail: false, IncludePhone: false);
 
         var result = await service.GetHouseholdByIdentifierAsync(

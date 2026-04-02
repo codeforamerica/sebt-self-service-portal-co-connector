@@ -25,13 +25,13 @@ public class ColoradoSummerEbtCaseService : ISummerEbtCaseService
     [ImportingConstructor]
     public ColoradoSummerEbtCaseService(
         [Import] IConfiguration configuration,
-        [Import] ILogger<ColoradoSummerEbtCaseService> logger)
+        [Import] ILoggerFactory loggerFactory)
     {
         ArgumentNullException.ThrowIfNull(configuration);
-        ArgumentNullException.ThrowIfNull(logger);
+        ArgumentNullException.ThrowIfNull(loggerFactory);
 
         _configuration = configuration;
-        _logger = logger;
+        _logger = loggerFactory.CreateLogger<ColoradoSummerEbtCaseService>();
     }
 
     /// <inheritdoc />
@@ -78,7 +78,7 @@ public class ColoradoSummerEbtCaseService : ISummerEbtCaseService
         var normalizedPhone = NormalizePhone(phoneNumber);
         if (string.IsNullOrEmpty(normalizedPhone))
         {
-            _logger?.LogWarning("Invalid or empty phone number for CBMS lookup.");
+            _logger.LogWarning("Invalid or empty phone number for CBMS lookup.");
             return null;
         }
 
@@ -99,7 +99,7 @@ public class ColoradoSummerEbtCaseService : ISummerEbtCaseService
         }
         catch (Exception ex)
         {
-            _logger?.LogError(ex, "CBMS Get Account Details failed for phone lookup.");
+            _logger.LogError(ex, "CBMS Get Account Details failed for phone lookup.");
             throw;
         }
     }
