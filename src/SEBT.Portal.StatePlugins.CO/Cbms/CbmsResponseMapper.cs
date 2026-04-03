@@ -33,7 +33,7 @@ internal static class CbmsResponseMapper
                 LastName = first.GurdLstNm ?? string.Empty
             } : null,
             BenefitIssuanceType = BenefitIssuanceType.SummerEbt,
-            SummerEbtCases = students.Select(s => MapToSummerEbtCase(s, piiVisibility)).ToList(),
+            SummerEbtCases = BuildCases(students, piiVisibility),
             Applications = BuildApplications(students)
         };
 
@@ -65,8 +65,10 @@ internal static class CbmsResponseMapper
         return new SummerEbtCase
         {
             SummerEBTCaseID = s.SebtChldId?.ToString(),
-            ApplicationId = s.SebtAppId?.ToString(),
-            ApplicationStudentId = s.SebtChldId?.ToString(),
+            ApplicationId = EligibilitySourceClassifier.IsApplicationBased(s.EligSrc)
+                ? s.SebtAppId?.ToString() : null,
+            ApplicationStudentId = EligibilitySourceClassifier.IsApplicationBased(s.EligSrc)
+                ? s.SebtChldId?.ToString() : null,
             ChildFirstName = s.StdFstNm ?? string.Empty,
             ChildLastName = s.StdLstNm ?? string.Empty,
             ChildDateOfBirth = ParseDateOnly(s.StdDob) ?? DateOnly.MinValue,
@@ -80,32 +82,52 @@ internal static class CbmsResponseMapper
             EbtCardIssueDate = ParseDateOnly(s.CardIssDt),
             EbtCardBalance = s.CardBal.HasValue ? (decimal)s.CardBal.Value : null,
             BenefitAvailableDate = ParseDateOnly(s.BenAvalDt),
-            BenefitExpirationDate = ParseDateOnly(s.BenExpDt)
+            BenefitExpirationDate = ParseDateOnly(s.BenExpDt),
+            EligibilitySource = s.EligSrc,
+            IssuanceType = IssuanceType.SummerEbt,  // CO does not co-load cards
         };
     }
 
+    /// <summary>
+    /// Builds the Cases collection. A child is a case if:
+    /// - Auto-eligible (EligSrc = DIRC or CDE) — always a case
+    /// - Unknown EligSrc (null/empty/unrecognized) — treated as auto-eligible
+    /// - Application-based (EligSrc = CBMS or PK) AND approved
+    /// </summary>
+    private static List<SummerEbtCase> BuildCases(
+        List<GetAccountStudentDetail> students,
+        PiiVisibility piiVisibility)
+    {
+        return students
+            .Where(s => !EligibilitySourceClassifier.IsApplicationBased(s.EligSrc)
+                      || MapApplicationStatus(s.SebtAppSts) == ApplicationStatus.Approved)
+            .Select(s => MapToSummerEbtCase(s, piiVisibility))
+            .ToList();
+    }
+
+    /// <summary>
+    /// Builds the Applications collection. Only rows where EligSrc indicates
+    /// an actual application was submitted (CBMS or PK), grouped by SebtAppId.
+    /// </summary>
     private static List<Application> BuildApplications(List<GetAccountStudentDetail> students)
     {
-        var byApp = students
+        var applicationRows = students
+            .Where(s => EligibilitySourceClassifier.IsApplicationBased(s.EligSrc))
             .Where(s => s.SebtAppId != null)
             .GroupBy(s => s.SebtAppId!);
 
-        return byApp.Select(g =>
+        return applicationRows.Select(g =>
         {
             var first = g.First();
             return new Application
             {
                 ApplicationNumber = first.SebtAppId.ToString(),
                 ApplicationStatus = MapApplicationStatus(first.SebtAppSts),
-                BenefitIssueDate = ParseDateTime(first.BenAvalDt),
-                BenefitExpirationDate = ParseDateTime(first.BenExpDt),
-                Last4DigitsOfCard = first.EbtCardLastFour,
-                CardStatus = MapCardStatus(first.EbtCardSts),
                 Children = g.Select(c => new Child
                 {
-                    CaseNumber = null,
                     FirstName = c.StdFstNm ?? string.Empty,
-                    LastName = c.StdLstNm ?? string.Empty
+                    LastName = c.StdLstNm ?? string.Empty,
+                    Status = MapApplicationStatus(c.SebtAppSts)
                 }).ToList()
             };
         }).ToList();

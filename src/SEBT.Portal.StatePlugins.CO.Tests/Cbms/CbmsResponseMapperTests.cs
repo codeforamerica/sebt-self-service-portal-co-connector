@@ -79,6 +79,7 @@ public class CbmsResponseMapperTests
         student.StdLstNm = "Doe";
         student.StdDob = "2015-03-15";
         student.StdntEligSts = "Eligible";
+        student.EligSrc = "CBMS";
         student.SebtAppSts = "approved";
         student.CbmsCsId = "case-123";
         student.EbtCardLastFour = "4321";
@@ -128,28 +129,6 @@ public class CbmsResponseMapperTests
         Assert.Equal(expected, @case.ApplicationStatus);
     }
 
-    [Theory]
-    [InlineData("REQUESTED", CardStatus.Requested)]
-    [InlineData("MAILED", CardStatus.Mailed)]
-    [InlineData("ACTIVE", CardStatus.Active)]
-    [InlineData("DEACTIVATED", CardStatus.Deactivated)]
-    [InlineData("unknown", CardStatus.Unknown)]
-    public void MapToHouseholdData_maps_card_status_in_applications(string ebtCardSts, CardStatus expected)
-    {
-        var student = CreateMinimalStudent();
-        student.EbtCardSts = ebtCardSts;
-        var response = new GetAccountDetailsResponse
-        {
-            StdntEnrollDtls = new List<GetAccountStudentDetail> { student }
-        };
-        var piiVisibility = new PiiVisibility(IncludeAddress: false, IncludeEmail: false, IncludePhone: false);
-
-        var result = CbmsResponseMapper.MapToHouseholdData(response, "8185551234", piiVisibility);
-
-        var app = Assert.Single(result.Applications);
-        Assert.Equal(expected, app.CardStatus);
-    }
-
     [Fact]
     public void MapToHouseholdData_MapAddress_returns_null_when_AddrLn1_and_Cty_both_empty()
     {
@@ -197,12 +176,15 @@ public class CbmsResponseMapperTests
         var s1 = CreateMinimalStudent();
         s1.SebtAppId = 1001;
         s1.StdFstNm = "Child1";
+        s1.EligSrc = "CBMS";
         var s2 = CreateMinimalStudent();
         s2.SebtAppId = 1001;
         s2.StdFstNm = "Child2";
+        s2.EligSrc = "CBMS";
         var s3 = CreateMinimalStudent();
         s3.SebtAppId = 2002;
         s3.StdFstNm = "Child3";
+        s3.EligSrc = "PK";
         var response = new GetAccountDetailsResponse
         {
             StdntEnrollDtls = new List<GetAccountStudentDetail> { s1, s2, s3 }
@@ -218,6 +200,132 @@ public class CbmsResponseMapperTests
         Assert.Single(app2.Children);
     }
 
+    [Fact]
+    public void MapToHouseholdData_auto_eligible_child_goes_to_cases_only()
+    {
+        var student = CreateMinimalStudent();
+        student.EligSrc = "DIRC";
+        student.StdFstNm = "AutoChild";
+        var response = new GetAccountDetailsResponse
+        {
+            StdntEnrollDtls = new List<GetAccountStudentDetail> { student }
+        };
+        var piiVisibility = new PiiVisibility(IncludeAddress: false, IncludeEmail: false, IncludePhone: false);
+
+        var result = CbmsResponseMapper.MapToHouseholdData(response, "8185551234", piiVisibility);
+
+        Assert.Single(result.SummerEbtCases);
+        Assert.Equal("AutoChild", result.SummerEbtCases[0].ChildFirstName);
+        Assert.Empty(result.Applications);
+    }
+
+    [Fact]
+    public void MapToHouseholdData_application_child_pending_goes_to_applications_only()
+    {
+        var student = CreateMinimalStudent();
+        student.EligSrc = "CBMS";
+        student.SebtAppSts = "PENDING";
+        student.StdFstNm = "AppChild";
+        var response = new GetAccountDetailsResponse
+        {
+            StdntEnrollDtls = new List<GetAccountStudentDetail> { student }
+        };
+        var piiVisibility = new PiiVisibility(IncludeAddress: false, IncludeEmail: false, IncludePhone: false);
+
+        var result = CbmsResponseMapper.MapToHouseholdData(response, "8185551234", piiVisibility);
+
+        Assert.Empty(result.SummerEbtCases);
+        var app = Assert.Single(result.Applications);
+        var child = Assert.Single(app.Children);
+        Assert.Equal("AppChild", child.FirstName);
+        Assert.Equal(ApplicationStatus.Pending, child.Status);
+    }
+
+    [Fact]
+    public void MapToHouseholdData_approved_application_child_goes_to_both_collections()
+    {
+        var student = CreateMinimalStudent();
+        student.EligSrc = "CBMS";
+        student.SebtAppSts = "APPROVED";
+        student.StdFstNm = "ApprovedChild";
+        student.EbtCardLastFour = "9999";
+        student.EbtCardSts = "ACTIVE";
+        var response = new GetAccountDetailsResponse
+        {
+            StdntEnrollDtls = new List<GetAccountStudentDetail> { student }
+        };
+        var piiVisibility = new PiiVisibility(IncludeAddress: false, IncludeEmail: false, IncludePhone: false);
+
+        var result = CbmsResponseMapper.MapToHouseholdData(response, "8185551234", piiVisibility);
+
+        var caseRecord = Assert.Single(result.SummerEbtCases);
+        Assert.Equal("ApprovedChild", caseRecord.ChildFirstName);
+        Assert.Equal("9999", caseRecord.EbtCardLastFour);
+
+        var app = Assert.Single(result.Applications);
+        var child = Assert.Single(app.Children);
+        Assert.Equal("ApprovedChild", child.FirstName);
+        Assert.Equal(ApplicationStatus.Approved, child.Status);
+    }
+
+    [Fact]
+    public void MapToHouseholdData_unknown_eligsrc_treated_as_case()
+    {
+        var student = CreateMinimalStudent();
+        student.EligSrc = "SOMETHING_NEW";
+        student.StdFstNm = "UnknownChild";
+        var response = new GetAccountDetailsResponse
+        {
+            StdntEnrollDtls = new List<GetAccountStudentDetail> { student }
+        };
+        var piiVisibility = new PiiVisibility(IncludeAddress: false, IncludeEmail: false, IncludePhone: false);
+
+        var result = CbmsResponseMapper.MapToHouseholdData(response, "8185551234", piiVisibility);
+
+        Assert.Single(result.SummerEbtCases);
+        Assert.Equal("UnknownChild", result.SummerEbtCases[0].ChildFirstName);
+        Assert.Empty(result.Applications);
+    }
+
+    [Fact]
+    public void MapToHouseholdData_case_has_eligibility_source_and_issuance_type()
+    {
+        var student = CreateMinimalStudent();
+        student.EligSrc = "DIRC";
+        var response = new GetAccountDetailsResponse
+        {
+            StdntEnrollDtls = new List<GetAccountStudentDetail> { student }
+        };
+        var piiVisibility = new PiiVisibility(IncludeAddress: false, IncludeEmail: false, IncludePhone: false);
+
+        var result = CbmsResponseMapper.MapToHouseholdData(response, "8185551234", piiVisibility);
+
+        var caseRecord = Assert.Single(result.SummerEbtCases);
+        Assert.Equal("DIRC", caseRecord.EligibilitySource);
+        Assert.Equal(IssuanceType.SummerEbt, caseRecord.IssuanceType);
+    }
+
+    [Fact]
+    public void MapToHouseholdData_auto_eligible_case_has_no_application_reference()
+    {
+        var student = CreateMinimalStudent();
+        student.EligSrc = "DIRC";
+        student.SebtAppId = 5001;
+        student.SebtChldId = 9001;
+        var response = new GetAccountDetailsResponse
+        {
+            StdntEnrollDtls = new List<GetAccountStudentDetail> { student }
+        };
+        var piiVisibility = new PiiVisibility(IncludeAddress: false, IncludeEmail: false, IncludePhone: false);
+
+        var result = CbmsResponseMapper.MapToHouseholdData(response, "8185551234", piiVisibility);
+
+        var caseRecord = Assert.Single(result.SummerEbtCases);
+        Assert.Null(caseRecord.ApplicationId);
+        Assert.Null(caseRecord.ApplicationStudentId);
+        Assert.Equal("9001", caseRecord.SummerEBTCaseID);  // SebtChldId is still the case ID
+    }
+
     private static GetAccountStudentDetail CreateMinimalStudent()
     {
         return new GetAccountStudentDetail
@@ -226,7 +334,8 @@ public class CbmsResponseMapperTests
             SebtAppId = 1,
             StdFstNm = "First",
             StdLstNm = "Last",
-            StdDob = "2010-01-01"
+            StdDob = "2010-01-01",
+            EligSrc = "DIRC"
         };
     }
 }
