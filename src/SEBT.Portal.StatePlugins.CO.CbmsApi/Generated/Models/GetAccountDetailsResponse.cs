@@ -14,6 +14,22 @@ namespace SEBT.Portal.StatePlugins.CO.CbmsApi.Models
     {
         /// <summary>Stores additional data not described in the OpenAPI description found when deserializing. Can be used for serialization as well.</summary>
         public IDictionary<string, object> AdditionalData { get; set; }
+        /// <summary>The respCd property</summary>
+#if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
+#nullable enable
+        public string? RespCd { get; set; }
+#nullable restore
+#else
+        public string RespCd { get; set; }
+#endif
+        /// <summary>The respMsg property</summary>
+#if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
+#nullable enable
+        public string? RespMsg { get; set; }
+#nullable restore
+#else
+        public string RespMsg { get; set; }
+#endif
         /// <summary>The stdntEnrollDtls property</summary>
 #if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
 #nullable enable
@@ -47,6 +63,8 @@ namespace SEBT.Portal.StatePlugins.CO.CbmsApi.Models
         {
             return new Dictionary<string, Action<IParseNode>>
             {
+                { "respCd", n => { RespCd = n.GetStringValue(); } },
+                { "respMsg", n => { RespMsg = n.GetStringValue(); } },
                 { "stdntEnrollDtls", n => { StdntEnrollDtls = n.GetCollectionOfObjectValues<global::SEBT.Portal.StatePlugins.CO.CbmsApi.Models.GetAccountStudentDetail>(global::SEBT.Portal.StatePlugins.CO.CbmsApi.Models.GetAccountStudentDetail.CreateFromDiscriminatorValue)?.AsList(); } },
             };
         }
@@ -57,6 +75,8 @@ namespace SEBT.Portal.StatePlugins.CO.CbmsApi.Models
         public virtual void Serialize(ISerializationWriter writer)
         {
             if(ReferenceEquals(writer, null)) throw new ArgumentNullException(nameof(writer));
+            writer.WriteStringValue("respCd", RespCd);
+            writer.WriteStringValue("respMsg", RespMsg);
             writer.WriteCollectionOfObjectValues<global::SEBT.Portal.StatePlugins.CO.CbmsApi.Models.GetAccountStudentDetail>("stdntEnrollDtls", StdntEnrollDtls);
             writer.WriteAdditionalData(AdditionalData);
         }

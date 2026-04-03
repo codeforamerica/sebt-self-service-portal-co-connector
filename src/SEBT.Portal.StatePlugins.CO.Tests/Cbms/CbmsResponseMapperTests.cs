@@ -73,8 +73,8 @@ public class CbmsResponseMapperTests
     public void MapToHouseholdData_maps_student_to_summer_ebt_case()
     {
         var student = CreateMinimalStudent();
-        student.SebtChldId = "chld-1";
-        student.SebtAppId = "app-1";
+        student.SebtChldId = 1001;
+        student.SebtAppId = 2001;
         student.StdFstNm = "Jane";
         student.StdLstNm = "Doe";
         student.StdDob = "2015-03-15";
@@ -94,8 +94,8 @@ public class CbmsResponseMapperTests
         var result = CbmsResponseMapper.MapToHouseholdData(response, "8185551234", piiVisibility);
 
         var @case = Assert.Single(result.SummerEbtCases);
-        Assert.Equal("chld-1", @case.SummerEBTCaseID);
-        Assert.Equal("app-1", @case.ApplicationId);
+        Assert.Equal("1001", @case.SummerEBTCaseID);
+        Assert.Equal("2001", @case.ApplicationId);
         Assert.Equal("Jane", @case.ChildFirstName);
         Assert.Equal("Doe", @case.ChildLastName);
         Assert.Equal(new DateOnly(2015, 3, 15), @case.ChildDateOfBirth);
@@ -195,13 +195,13 @@ public class CbmsResponseMapperTests
     public void MapToHouseholdData_builds_applications_grouped_by_app_id()
     {
         var s1 = CreateMinimalStudent();
-        s1.SebtAppId = "app-1";
+        s1.SebtAppId = 1001;
         s1.StdFstNm = "Child1";
         var s2 = CreateMinimalStudent();
-        s2.SebtAppId = "app-1";
+        s2.SebtAppId = 1001;
         s2.StdFstNm = "Child2";
         var s3 = CreateMinimalStudent();
-        s3.SebtAppId = "app-2";
+        s3.SebtAppId = 2002;
         s3.StdFstNm = "Child3";
         var response = new GetAccountDetailsResponse
         {
@@ -212,9 +212,9 @@ public class CbmsResponseMapperTests
         var result = CbmsResponseMapper.MapToHouseholdData(response, "8185551234", piiVisibility);
 
         Assert.Equal(2, result.Applications.Count);
-        var app1 = result.Applications.First(a => a.ApplicationNumber == "app-1");
+        var app1 = result.Applications.First(a => a.ApplicationNumber == "1001");
         Assert.Equal(2, app1.Children.Count);
-        var app2 = result.Applications.First(a => a.ApplicationNumber == "app-2");
+        var app2 = result.Applications.First(a => a.ApplicationNumber == "2002");
         Assert.Single(app2.Children);
     }
 
@@ -222,8 +222,8 @@ public class CbmsResponseMapperTests
     {
         return new GetAccountStudentDetail
         {
-            SebtChldId = "chld",
-            SebtAppId = "app",
+            SebtChldId = 1,
+            SebtAppId = 1,
             StdFstNm = "First",
             StdLstNm = "Last",
             StdDob = "2010-01-01"

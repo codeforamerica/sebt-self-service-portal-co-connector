@@ -139,13 +139,7 @@ namespace SEBT.Portal.StatePlugins.CO.CbmsApi.Models
         /// <summary>The mtchCnfd property</summary>
         public double? MtchCnfd { get; set; }
         /// <summary>The sebtAppId property</summary>
-#if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
-#nullable enable
-        public string? SebtAppId { get; set; }
-#nullable restore
-#else
-        public string SebtAppId { get; set; }
-#endif
+        public int? SebtAppId { get; set; }
         /// <summary>The sebtAppSts property</summary>
 #if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
 #nullable enable
@@ -155,29 +149,11 @@ namespace SEBT.Portal.StatePlugins.CO.CbmsApi.Models
         public string SebtAppSts { get; set; }
 #endif
         /// <summary>The sebtChldCwin property</summary>
-#if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
-#nullable enable
-        public string? SebtChldCwin { get; set; }
-#nullable restore
-#else
-        public string SebtChldCwin { get; set; }
-#endif
+        public int? SebtChldCwin { get; set; }
         /// <summary>The sebtChldId property</summary>
-#if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
-#nullable enable
-        public string? SebtChldId { get; set; }
-#nullable restore
-#else
-        public string SebtChldId { get; set; }
-#endif
+        public int? SebtChldId { get; set; }
         /// <summary>The sebtYear property</summary>
-#if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
-#nullable enable
-        public string? SebtYear { get; set; }
-#nullable restore
-#else
-        public string SebtYear { get; set; }
-#endif
+        public int? SebtYear { get; set; }
         /// <summary>The staCd property</summary>
 #if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
 #nullable enable
@@ -276,11 +252,11 @@ namespace SEBT.Portal.StatePlugins.CO.CbmsApi.Models
                 { "gurdLstNm", n => { GurdLstNm = n.GetStringValue(); } },
                 { "gurdPhnNm", n => { GurdPhnNm = n.GetStringValue(); } },
                 { "mtchCnfd", n => { MtchCnfd = n.GetDoubleValue(); } },
-                { "sebtAppId", n => { SebtAppId = n.GetStringValue(); } },
+                { "sebtAppId", n => { SebtAppId = n.GetIntValue(); } },
                 { "sebtAppSts", n => { SebtAppSts = n.GetStringValue(); } },
-                { "sebtChldCwin", n => { SebtChldCwin = n.GetStringValue(); } },
-                { "sebtChldId", n => { SebtChldId = n.GetStringValue(); } },
-                { "sebtYear", n => { SebtYear = n.GetStringValue(); } },
+                { "sebtChldCwin", n => { SebtChldCwin = n.GetIntValue(); } },
+                { "sebtChldId", n => { SebtChldId = n.GetIntValue(); } },
+                { "sebtYear", n => { SebtYear = n.GetIntValue(); } },
                 { "staCd", n => { StaCd = n.GetStringValue(); } },
                 { "stdDob", n => { StdDob = n.GetStringValue(); } },
                 { "stdFstNm", n => { StdFstNm = n.GetStringValue(); } },
@@ -314,11 +290,11 @@ namespace SEBT.Portal.StatePlugins.CO.CbmsApi.Models
             writer.WriteStringValue("gurdLstNm", GurdLstNm);
             writer.WriteStringValue("gurdPhnNm", GurdPhnNm);
             writer.WriteDoubleValue("mtchCnfd", MtchCnfd);
-            writer.WriteStringValue("sebtAppId", SebtAppId);
+            writer.WriteIntValue("sebtAppId", SebtAppId);
             writer.WriteStringValue("sebtAppSts", SebtAppSts);
-            writer.WriteStringValue("sebtChldCwin", SebtChldCwin);
-            writer.WriteStringValue("sebtChldId", SebtChldId);
-            writer.WriteStringValue("sebtYear", SebtYear);
+            writer.WriteIntValue("sebtChldCwin", SebtChldCwin);
+            writer.WriteIntValue("sebtChldId", SebtChldId);
+            writer.WriteIntValue("sebtYear", SebtYear);
             writer.WriteStringValue("staCd", StaCd);
             writer.WriteStringValue("stdDob", StdDob);
             writer.WriteStringValue("stdFstNm", StdFstNm);

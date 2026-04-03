@@ -76,8 +76,8 @@ public class CbmsSandboxTests(CbmsSandboxFixture fixture)
         {
             Assert.NotNull(student);
             // Sandbox may return partial records; verify core identifiers when present
-            if (!string.IsNullOrEmpty(student.SebtChldId))
-                Assert.False(string.IsNullOrEmpty(student.SebtAppId), "Student with SebtChldId must have SebtAppId.");
+            if (student.SebtChldId.HasValue)
+                Assert.True(student.SebtAppId.HasValue, "Student with SebtChldId must have SebtAppId.");
             // When StdDob is present, it must be parseable as a date (YYYY-MM-DD per spec)
             if (!string.IsNullOrEmpty(student.StdDob))
                 Assert.True(DateOnly.TryParse(student.StdDob, out _), $"StdDob must be a valid date, got: {student.StdDob}");

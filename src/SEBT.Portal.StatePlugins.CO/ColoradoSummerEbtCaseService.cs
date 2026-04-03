@@ -95,11 +95,18 @@ public class ColoradoSummerEbtCaseService : ISummerEbtCaseService
         }
         catch (ErrorResponse ex) when (ex.ResponseStatusCode == 404)
         {
+            _logger.LogWarning(ex, "CBMS GetAccountDetails failed with status code: {StatusCode}", 404);
             return null;
+        }
+        catch (ErrorResponse ex)
+        {
+            _logger.LogWarning(ex, "CBMS GetAccountDetails failed with StatusCode: {StatusCode}; AdditionalData: {@AdditionalData}; ErrorDetails: {@ErrorDetails}", 
+                ex.ResponseStatusCode, ex.AdditionalData, ex.ErrorDetails);
+            throw;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "CBMS Get Account Details failed for phone lookup.");
+            _logger.LogError(ex, "CBMS GetAccountDetails failed for phone lookup.");
             throw;
         }
     }
@@ -132,6 +139,6 @@ public class ColoradoSummerEbtCaseService : ISummerEbtCaseService
     {
         if (string.IsNullOrWhiteSpace(value)) return null;
         var digits = new string(value.Where(char.IsDigit).ToArray());
-        return digits.Length >= 10 ? digits : null;
+        return digits.Length >= 10 ? digits.TrimStart('1') : null;
     }
 }

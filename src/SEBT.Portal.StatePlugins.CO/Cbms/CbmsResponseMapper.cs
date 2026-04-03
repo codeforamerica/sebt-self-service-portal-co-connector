@@ -64,9 +64,9 @@ internal static class CbmsResponseMapper
     {
         return new SummerEbtCase
         {
-            SummerEBTCaseID = s.SebtChldId,
-            ApplicationId = s.SebtAppId,
-            ApplicationStudentId = s.SebtChldId,
+            SummerEBTCaseID = s.SebtChldId?.ToString(),
+            ApplicationId = s.SebtAppId?.ToString(),
+            ApplicationStudentId = s.SebtChldId?.ToString(),
             ChildFirstName = s.StdFstNm ?? string.Empty,
             ChildLastName = s.StdLstNm ?? string.Empty,
             ChildDateOfBirth = ParseDateOnly(s.StdDob) ?? DateOnly.MinValue,
@@ -87,7 +87,7 @@ internal static class CbmsResponseMapper
     private static List<Application> BuildApplications(List<GetAccountStudentDetail> students)
     {
         var byApp = students
-            .Where(s => !string.IsNullOrEmpty(s.SebtAppId))
+            .Where(s => s.SebtAppId != null)
             .GroupBy(s => s.SebtAppId!);
 
         return byApp.Select(g =>
@@ -95,7 +95,7 @@ internal static class CbmsResponseMapper
             var first = g.First();
             return new Application
             {
-                ApplicationNumber = first.SebtAppId,
+                ApplicationNumber = first.SebtAppId.ToString(),
                 ApplicationStatus = MapApplicationStatus(first.SebtAppSts),
                 BenefitIssueDate = ParseDateTime(first.BenAvalDt),
                 BenefitExpirationDate = ParseDateTime(first.BenExpDt),
