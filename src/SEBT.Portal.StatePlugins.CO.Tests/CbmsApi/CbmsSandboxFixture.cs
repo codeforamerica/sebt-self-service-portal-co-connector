@@ -1,4 +1,6 @@
+using Microsoft.Extensions.Caching.Hybrid;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
 using SEBT.Portal.StatePlugins.CO.CbmsApi;
 using SEBT.Portal.StatePlugins.CO.CbmsApi.Mocks;
 
@@ -48,12 +50,19 @@ public class CbmsSandboxFixture : IAsyncLifetime
         {
             CredentialsConfigured = true;
             UseMockResponses = true;
+
+            var services = new ServiceCollection();
+            services.AddHybridCache();
+            var provider = services.BuildServiceProvider();
+            var cache = provider.GetRequiredService<HybridCache>();
+            var dataStore = new MockCbmsDataStore(cache);
+
             Client = CbmsSebtApiClientFactory.Create(
                 clientId: "mock-client-id",
                 clientSecret: "mock-client-secret",
                 CbmsDefaults.SandboxApiBaseUrl,
                 CbmsDefaults.SandboxTokenEndpointUrl,
-                new MockCbmsHttpHandler());
+                new MockCbmsHttpHandler(dataStore));
             return Task.CompletedTask;
         }
 

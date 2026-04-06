@@ -29,11 +29,7 @@ internal static class CbmsOptionsHelper
             ?? Environment.GetEnvironmentVariable("Cbms__UseMockResponses");
         var useMockResponses = useMockResponsesRaw?.Equals("true", StringComparison.OrdinalIgnoreCase) == true;
 
-        var return404Raw = configuration?["Cbms:Return404ForGetAccountDetails"]
-            ?? Environment.GetEnvironmentVariable("Cbms__Return404ForGetAccountDetails");
-        var return404ForGetAccountDetails = return404Raw?.Equals("true", StringComparison.OrdinalIgnoreCase) == true;
-
-        return new CbmsConnectionOptions(clientId, clientSecret, apiBaseUrl, tokenEndpointUrl, useMockResponses, return404ForGetAccountDetails);
+        return new CbmsConnectionOptions(clientId, clientSecret, apiBaseUrl, tokenEndpointUrl, useMockResponses);
     }
 }
 
@@ -45,8 +41,7 @@ internal sealed record CbmsConnectionOptions(
     string ClientSecret,
     string ApiBaseUrl,
     string TokenEndpointUrl,
-    bool UseMockResponses = false,
-    bool Return404ForGetAccountDetails = false)
+    bool UseMockResponses = false)
 {
     /// <summary>
     /// True when real credentials are configured or mock responses are enabled.
