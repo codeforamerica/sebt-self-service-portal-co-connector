@@ -45,7 +45,7 @@
 
 ## Part A: Plugin DI Bridge (main repo)
 
-> **Working directory:** `/Users/jblair@codeforamerica.org/Projects/SEBT/sebt-self-service-portal`
+> **Working directory:** `sebt-self-service-portal` (main portal repo)
 >
 > Create a feature branch in this repo before starting.
 
@@ -372,7 +372,7 @@ If tests fail, investigate. Likely causes:
 
 ## Part B: Mock Data Store (CO connector repo)
 
-> **Working directory:** `/Users/jblair@codeforamerica.org/Projects/SEBT/sebt-self-service-portal-co-connector`
+> **Working directory:** `sebt-self-service-portal-co-connector` (this repo)
 >
 > Branch `feature/realistic-cbms-mock-responses` is already created.
 >
