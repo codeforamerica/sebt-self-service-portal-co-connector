@@ -29,6 +29,7 @@
     </PropertyGroup>
 
     <ItemGroup>
+        <PackageReference Include="libphonenumber-csharp" Version="9.0.27" />
         <PackageReference Include="SEBT.Portal.StatesPlugins.Interfaces" Version="0.0.1-dev-*" Condition="!Exists('$(StateConnectorInterfacesProject)')" />
         <InternalsVisibleTo Include="SEBT.Portal.StatePlugins.CO.Tests" />
     </ItemGroup>
