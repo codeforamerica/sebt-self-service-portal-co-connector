@@ -16,6 +16,14 @@ public sealed class MockCbmsDataStore
     private const string ManifestResourceName = "SEBT.Portal.StatePlugins.CO.CbmsApi.TestData.CbmsMocks.mock-manifest.json";
     private const string ResourcePrefix = "SEBT.Portal.StatePlugins.CO.CbmsApi.TestData.CbmsMocks.";
 
+    // L2 (Redis): 30 days — mock data should survive long-running deployments.
+    // L1 (in-memory): default (~1 minute) — short enough that PATCH mutations
+    // from other instances propagate quickly via Redis.
+    private static readonly HybridCacheEntryOptions CacheOptions = new()
+    {
+        Expiration = TimeSpan.FromDays(30)
+    };
+
     // Embedded JSON files may contain JavaScript-style comments (// …).
     private static readonly JsonDocumentOptions JsonOptions = new()
     {
@@ -59,6 +67,7 @@ public sealed class MockCbmsDataStore
         var result = await _cache.GetOrCreateAsync(
             cacheKey,
             cancellationToken: cancellationToken,
+            options: CacheOptions,
             factory: (ct) => ValueTask.FromResult<string?>(null)).ConfigureAwait(false);
 
         return result ?? EmptySuccessResponse;
@@ -84,6 +93,7 @@ public sealed class MockCbmsDataStore
             var json = await _cache.GetOrCreateAsync(
                 cacheKey,
                 cancellationToken: cancellationToken,
+                options: CacheOptions,
                 factory: (ct) => ValueTask.FromResult<string?>(null)).ConfigureAwait(false);
 
             if (json == null) continue;
@@ -101,7 +111,7 @@ public sealed class MockCbmsDataStore
                 if (studentChldId != sebtChldId) continue;
 
                 var mutated = ApplyMutations(json, i, root);
-                await _cache.SetAsync(cacheKey, mutated, cancellationToken: cancellationToken).ConfigureAwait(false);
+                await _cache.SetAsync(cacheKey, mutated, options: CacheOptions, cancellationToken: cancellationToken).ConfigureAwait(false);
                 return SuccessResponse;
             }
         }
@@ -127,7 +137,7 @@ public sealed class MockCbmsDataStore
                 // Re-serialize to strip comments from embedded JSON files.
                 var cleanJson = NormalizeJson(rawJson);
                 var cacheKey = CacheKeyPrefix + phone;
-                await _cache.SetAsync(cacheKey, cleanJson, cancellationToken: cancellationToken).ConfigureAwait(false);
+                await _cache.SetAsync(cacheKey, cleanJson, options: CacheOptions, cancellationToken: cancellationToken).ConfigureAwait(false);
                 phones.Add(phone);
             }
 
