@@ -18,8 +18,8 @@ public class GetAccountDetailsSerializationTests
                   "gurdLstNm": "Smith",
                   "gurdPhnNm": "555-0123",
                   "gurdEmailAddr": "jane.smith@example.com",
-                  "sebtYear": "2024",
-                  "sebtAppId": "APP-556677",
+                  "sebtYear": 2024,
+                  "sebtAppId": 556677,
                   "stdFstNm": "Johnny",
                   "stdLstNm": "Smith",
                   "stdDob": "2016-10-20",
@@ -27,8 +27,8 @@ public class GetAccountDetailsSerializationTests
                   "stdntEligSts": "ENROLLED",
                   "sebtAppSts": "APPROVED",
                   "eligSrc": "DIRECT_CERT",
-                  "sebtChldId": "C-990011",
-                  "sebtChldCwin": "W123456789",
+                  "sebtChldId": 990011,
+                  "sebtChldCwin": 123456789,
                   "addrLn1": "123 Maple Avenue",
                   "addrLn2": "Apt 4B",
                   "cty": "Denver",
@@ -44,7 +44,9 @@ public class GetAccountDetailsSerializationTests
                   "cbmsCsId": "C8887727",
                   "dircEligSrc": "SNAP"
                 }
-              ]
+              ],
+              "respCd": "00",
+              "respMsg": "Success"
             }
             """;
 
@@ -71,12 +73,12 @@ public class GetAccountDetailsSerializationTests
         Assert.Equal("ENROLLED", student.StdntEligSts);
 
         // Enrollment details
-        Assert.Equal("2024", student.SebtYear);
-        Assert.Equal("APP-556677", student.SebtAppId);
+        Assert.Equal(2024, student.SebtYear);
+        Assert.Equal(556677, student.SebtAppId);
         Assert.Equal("APPROVED", student.SebtAppSts);
         Assert.Equal("DIRECT_CERT", student.EligSrc);
-        Assert.Equal("C-990011", student.SebtChldId);
-        Assert.Equal("W123456789", student.SebtChldCwin);
+        Assert.Equal(990011, student.SebtChldId);
+        Assert.Equal(123456789, student.SebtChldCwin);
 
         // Address
         Assert.Equal("123 Maple Avenue", student.AddrLn1);
@@ -95,6 +97,10 @@ public class GetAccountDetailsSerializationTests
         Assert.Equal(120.5d, student.CardBal);
         Assert.Equal("C8887727", student.CbmsCsId);
         Assert.Equal("SNAP", student.DircEligSrc);
+
+        // Response metadata
+        Assert.Equal("00", result.RespCd);
+        Assert.Equal("Success", result.RespMsg);
 
         // Unmapped fields land in AdditionalData — fail if the spec adds new attributes
         Assert.Empty(result.AdditionalData);

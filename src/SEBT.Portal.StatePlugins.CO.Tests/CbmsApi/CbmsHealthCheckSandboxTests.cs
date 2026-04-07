@@ -19,6 +19,7 @@ public class CbmsHealthCheckSandboxTests(CbmsSandboxFixture fixture)
     public async Task CbmsApiHealthCheck_ReturnsHealthy_WhenSandboxIsReachable()
     {
         Skip.If(!fixture.CredentialsConfigured, SkipReason);
+        Skip.If(fixture.UseMockResponses, "Skipped when using mock responses; health check requires the real sandbox to be useful.");
 
         var configuration = new ConfigurationBuilder()
             .AddUserSecrets<CbmsSandboxFixture>(optional: true)

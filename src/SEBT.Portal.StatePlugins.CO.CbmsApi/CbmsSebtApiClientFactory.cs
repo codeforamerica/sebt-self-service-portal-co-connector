@@ -29,7 +29,7 @@ public static class CbmsSebtApiClientFactory
     /// <param name="clientSecret">OAuth 2.0 client secret.</param>
     /// <param name="apiBaseUrl">Base URL for the CBMS API.</param>
     /// <param name="tokenEndpointUrl">OAuth 2.0 token endpoint URL.</param>
-    /// <param name="httpMessageHandler">Optional handler for tests or custom HTTP behavior. When set, used for both token and API requests.</param>
+    /// <param name="httpMessageHandler">Optional handler for tests or custom HTTP behavior. When provided, used for both token and API requests.</param>
     public static CbmsSebtApiClient Create(
         string clientId,
         string clientSecret,
@@ -50,10 +50,7 @@ public static class CbmsSebtApiClientFactory
         var apiHttpClient = httpMessageHandler != null
             ? new HttpClient(httpMessageHandler, disposeHandler: false) { BaseAddress = baseAddress }
             : HttpClients.GetOrAdd(baseAddress, uri =>
-                new HttpClient(SharedHandler.Value, disposeHandler: false)
-                {
-                    BaseAddress = uri
-                });
+                new HttpClient(SharedHandler.Value, disposeHandler: false) { BaseAddress = uri });
         var adapter = new HttpClientRequestAdapter(authProvider, httpClient: apiHttpClient);
 
         return new CbmsSebtApiClient(adapter);
