@@ -64,7 +64,7 @@ internal static class CbmsResponseMapper
     {
         return new SummerEbtCase
         {
-            SummerEBTCaseID = s.SebtChldId?.ToString(),
+            SummerEBTCaseID = s.SebtChldCwin?.ToString(),
             ApplicationId = EligibilitySourceClassifier.IsApplicationBased(s.EligSrc)
                 ? s.SebtAppId?.ToString() : null,
             ApplicationStudentId = EligibilitySourceClassifier.IsApplicationBased(s.EligSrc)

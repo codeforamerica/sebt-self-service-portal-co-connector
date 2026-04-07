@@ -74,6 +74,7 @@ public class CbmsResponseMapperTests
     {
         var student = CreateMinimalStudent();
         student.SebtChldId = 1001;
+        student.SebtChldCwin = 5001001;
         student.SebtAppId = 2001;
         student.StdFstNm = "Jane";
         student.StdLstNm = "Doe";
@@ -95,7 +96,7 @@ public class CbmsResponseMapperTests
         var result = CbmsResponseMapper.MapToHouseholdData(response, "8185551234", piiVisibility);
 
         var @case = Assert.Single(result.SummerEbtCases);
-        Assert.Equal("1001", @case.SummerEBTCaseID);
+        Assert.Equal("5001001", @case.SummerEBTCaseID);
         Assert.Equal("2001", @case.ApplicationId);
         Assert.Equal("Jane", @case.ChildFirstName);
         Assert.Equal("Doe", @case.ChildLastName);
@@ -312,6 +313,7 @@ public class CbmsResponseMapperTests
         student.EligSrc = "DIRC";
         student.SebtAppId = 5001;
         student.SebtChldId = 9001;
+        student.SebtChldCwin = 7009001;
         var response = new GetAccountDetailsResponse
         {
             StdntEnrollDtls = new List<GetAccountStudentDetail> { student }
@@ -323,7 +325,7 @@ public class CbmsResponseMapperTests
         var caseRecord = Assert.Single(result.SummerEbtCases);
         Assert.Null(caseRecord.ApplicationId);
         Assert.Null(caseRecord.ApplicationStudentId);
-        Assert.Equal("9001", caseRecord.SummerEBTCaseID);  // SebtChldId is still the case ID
+        Assert.Equal("7009001", caseRecord.SummerEBTCaseID);
     }
 
     private static GetAccountStudentDetail CreateMinimalStudent()
@@ -331,6 +333,7 @@ public class CbmsResponseMapperTests
         return new GetAccountStudentDetail
         {
             SebtChldId = 1,
+            SebtChldCwin = 100001,
             SebtAppId = 1,
             StdFstNm = "First",
             StdLstNm = "Last",
