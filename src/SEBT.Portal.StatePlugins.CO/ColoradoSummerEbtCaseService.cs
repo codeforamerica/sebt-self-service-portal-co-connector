@@ -79,7 +79,7 @@ public class ColoradoSummerEbtCaseService : ISummerEbtCaseService
             return null;
         }
 
-        var normalizedPhone = NormalizePhone(phoneNumber);
+        var normalizedPhone = PhoneNormalizer.Normalize(phoneNumber);
         if (string.IsNullOrEmpty(normalizedPhone))
         {
             _logger.LogWarning("Invalid or empty phone number for CBMS lookup.");
@@ -150,12 +150,5 @@ public class ColoradoSummerEbtCaseService : ISummerEbtCaseService
             _cachedOptions = options;
             return _cachedClient;
         }
-    }
-
-    private static string? NormalizePhone(string? value)
-    {
-        if (string.IsNullOrWhiteSpace(value)) return null;
-        var digits = new string(value.Where(char.IsDigit).ToArray());
-        return digits.Length >= 10 ? digits.TrimStart('1') : null;
     }
 }
