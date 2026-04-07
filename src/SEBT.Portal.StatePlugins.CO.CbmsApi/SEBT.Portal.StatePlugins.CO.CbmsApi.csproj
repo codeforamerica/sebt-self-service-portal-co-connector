@@ -13,6 +13,7 @@
 
     <ItemGroup>
         <EmbeddedResource Include="TestData\CbmsMocks\*.json" />
+        <EmbeddedResource Include="TestData\CbmsMocks\*.jsonc" />
     </ItemGroup>
 
 </Project>

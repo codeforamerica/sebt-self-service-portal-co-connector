@@ -1,9 +1,9 @@
 {
     "households": {
-        "7205553018": "edge-case-y-response.json",
-        "7192833113": "get-account-details-denied.json",
-        "7207073837": "get-account-details-cancelled.json",
-        "7209289672": "get-account-details-pending.json",
-        "7198004382": "get-account-details-largefamily2.json"
+        "7205553018": "edge-case-y-response.jsonc",
+        "7192833113": "get-account-details-denied.jsonc",
+        "7207073837": "get-account-details-cancelled.jsonc",
+        "7209289672": "get-account-details-pending.jsonc",
+        "7198004382": "get-account-details-largefamily2.jsonc"
     }
 }

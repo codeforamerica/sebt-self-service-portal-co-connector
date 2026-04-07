@@ -65,7 +65,7 @@ public class ClientCredentialsTokenProviderTests
     /// </summary>
     private static async Task<string> LoadGetAccountDetailsMockAsync()
     {
-        var resourceName = "SEBT.Portal.StatePlugins.CO.CbmsApi.TestData.CbmsMocks.get-account-details-largefamily2.json";
+        var resourceName = "SEBT.Portal.StatePlugins.CO.CbmsApi.TestData.CbmsMocks.get-account-details-largefamily2.jsonc";
         var apiAssembly = typeof(CbmsSebtApiClient).Assembly;
         await using var stream = apiAssembly.GetManifestResourceStream(resourceName)
             ?? throw new InvalidOperationException($"Resource not found: {resourceName}");
