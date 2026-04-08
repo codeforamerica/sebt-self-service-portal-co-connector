@@ -1,4 +1,6 @@
 using System.Text.Json;
+using Microsoft.Extensions.Caching.Hybrid;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Kiota.Abstractions.Serialization;
 using SEBT.Portal.StatePlugins.CO.CbmsApi;
 using SEBT.Portal.StatePlugins.CO.CbmsApi.Mocks;
@@ -8,6 +10,13 @@ namespace SEBT.Portal.StatePlugins.CO.Tests.CbmsApi;
 
 public class UpdateStudentDetailsSerializationTests
 {
+    private static HybridCache CreateInMemoryHybridCache()
+    {
+        var services = new ServiceCollection();
+        services.AddHybridCache();
+        return services.BuildServiceProvider().GetRequiredService<HybridCache>();
+    }
+
     [Fact]
     public async Task Deserialize_UpdateStudentDetailsResponse()
     {
@@ -203,7 +212,8 @@ public class UpdateStudentDetailsSerializationTests
     [Fact]
     public async Task PatchAsync_example_body_succeeds_against_mock_handler()
     {
-        var handler = new MockCbmsHttpHandler();
+        var cache = CreateInMemoryHybridCache();
+        var handler = new MockCbmsHttpHandler(new MockCbmsDataStore(cache));
         var client = CbmsSebtApiClientFactory.Create(
             "mock-client-id",
             "mock-client-secret",
@@ -250,7 +260,7 @@ public class UpdateStudentDetailsSerializationTests
         var response = await client.Sebt.UpdateStdDtls.PatchAsync(bodies);
 
         Assert.NotNull(response);
-        Assert.Equal("200", response.RespCd);
+        Assert.Equal("00", response.RespCd);
         Assert.Equal("Success", response.RespMsg);
     }
 }
