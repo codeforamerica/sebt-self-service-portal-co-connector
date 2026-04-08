@@ -1,4 +1,5 @@
 using System.Composition;
+using Microsoft.Extensions.Caching.Hybrid;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using SEBT.Portal.StatePlugins.CO.Cbms;
@@ -17,6 +18,7 @@ public class ColoradoSummerEbtCaseService : ISummerEbtCaseService
 {
     private readonly IConfiguration _configuration;
     private readonly ILogger<ColoradoSummerEbtCaseService> _logger;
+    private readonly HybridCache? _cache;
 
     private CbmsConnectionOptions? _cachedOptions;
     private CbmsSebtApiClient? _cachedClient;
@@ -25,13 +27,15 @@ public class ColoradoSummerEbtCaseService : ISummerEbtCaseService
     [ImportingConstructor]
     public ColoradoSummerEbtCaseService(
         [Import] IConfiguration configuration,
-        [Import] ILoggerFactory loggerFactory)
+        [Import] ILoggerFactory loggerFactory,
+        HybridCache? cache = null)
     {
         ArgumentNullException.ThrowIfNull(configuration);
         ArgumentNullException.ThrowIfNull(loggerFactory);
 
         _configuration = configuration;
         _logger = loggerFactory.CreateLogger<ColoradoSummerEbtCaseService>();
+        _cache = cache;
     }
 
     /// <inheritdoc />
@@ -95,10 +99,8 @@ public class ColoradoSummerEbtCaseService : ISummerEbtCaseService
         }
         catch (ErrorResponse ex)
         {
-            _logger.LogWarning(
-                "CBMS GetAccountDetails failed with HTTP {StatusCode}: {Message}",
-                ex.ResponseStatusCode,
-                string.IsNullOrWhiteSpace(ex.Message) ? "(no message)" : ex.Message.Trim());
+            _logger.LogWarning(ex, "CBMS GetAccountDetails failed with StatusCode: {StatusCode}; AdditionalData: {@AdditionalData}; ErrorDetails: {@ErrorDetails}",
+                ex.ResponseStatusCode, ex.AdditionalData, ex.ErrorDetails);
             throw;
         }
         catch (Exception ex)
@@ -115,11 +117,24 @@ public class ColoradoSummerEbtCaseService : ISummerEbtCaseService
             if (_cachedOptions == options && _cachedClient != null)
                 return _cachedClient;
 
-            var clientId = options.UseMockResponses ? "mock-client-id" : options.ClientId;
-            var clientSecret = options.UseMockResponses ? "mock-client-secret" : options.ClientSecret;
-            var handler = options.UseMockResponses
-                ? new MockCbmsHttpHandler(return404ForGetAccountDetails: options.Return404ForGetAccountDetails)
-                : null;
+            HttpMessageHandler? handler = null;
+            var clientId = options.ClientId;
+            var clientSecret = options.ClientSecret;
+
+            if (options.UseMockResponses)
+            {
+                if (_cache == null)
+                {
+                    throw new InvalidOperationException(
+                        "HybridCache must be registered in DI when Cbms:UseMockResponses is enabled. " +
+                        "Ensure services.AddHybridCache() is called during service registration.");
+                }
+
+                clientId = "mock-client-id";
+                clientSecret = "mock-client-secret";
+                var dataStore = new MockCbmsDataStore(_cache);
+                handler = new MockCbmsHttpHandler(dataStore);
+            }
 
             _cachedClient = CbmsSebtApiClientFactory.Create(
                 clientId,

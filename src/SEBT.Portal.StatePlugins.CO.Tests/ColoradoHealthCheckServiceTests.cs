@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Caching.Hybrid;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
@@ -57,6 +58,7 @@ public class ColoradoHealthCheckServiceTests
     {
         var services = new ServiceCollection();
         services.AddLogging();
+        services.AddHybridCache();
         var builder = services.AddHealthChecks();
         var config = new ConfigurationBuilder()
             .AddInMemoryCollection(new Dictionary<string, string?>
@@ -64,7 +66,9 @@ public class ColoradoHealthCheckServiceTests
                 ["Cbms:UseMockResponses"] = "true"
             })
             .Build();
-        var healthCheckService = new ColoradoHealthCheckService(config);
+        var cacheProvider = services.BuildServiceProvider();
+        var cache = cacheProvider.GetRequiredService<HybridCache>();
+        var healthCheckService = new ColoradoHealthCheckService(config, cache);
 
         healthCheckService.ConfigureHealthChecks(builder);
 

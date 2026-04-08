@@ -1,82 +1,97 @@
 using System.Net;
-using System.Net.Http;
 using System.Reflection;
 using System.Text;
+using System.Text.Json;
 
 namespace SEBT.Portal.StatePlugins.CO.CbmsApi.Mocks;
 
 /// <summary>
-/// HttpMessageHandler that returns mock CBMS API responses from the OpenAPI spec examples.
-/// Used when Cbms:UseMockResponses is enabled for integration tests and local development
-/// without real sandbox credentials.
+/// HttpMessageHandler that returns mock CBMS API responses.
+/// Phone lookup (get-account-details) and PATCH (update-std-dtls) are delegated
+/// to <see cref="MockCbmsDataStore"/> for phone-indexed, cache-backed responses.
+/// Token, ping, and check-enrollment return static embedded JSON.
 /// </summary>
-/// <remarks>
-/// Mock responses are loaded from embedded JSON files in TestData/CbmsMocks/.
-/// Edit those files to change mock data without recompiling core logic.
-/// </remarks>
 public sealed class MockCbmsHttpHandler : HttpMessageHandler
 {
     private const string TokenPath = "ext-uat-c-cbms-oauth-app/token";
     private const string ApiBase = "ext-uat-c-cbms-cfa-eapi/api";
     private const string GetAccountDetailsPath = "sebt/get-account-details";
     private const string UpdateStdDtlsPath = "sebt/update-std-dtls";
-    private static readonly string UpdateStdDtlsSuccessBody = """{"respCd":"200","respMsg":"Success"}""";
-    private static readonly string GetAccountDetails404Body = """{"apiName":"cbms-sebt-eapi-impl","correlationId":"test","timestamp":"2026-01-30T16:00:35.143Z","errorDetails":[{"code":"404","message":"Not Found"}]}""";
 
-    private readonly bool _return404ForGetAccountDetails;
+    private readonly MockCbmsDataStore _dataStore;
 
-    public MockCbmsHttpHandler(bool return404ForGetAccountDetails = false)
+    private static readonly string MockTokenResponse = LoadStaticMockJson("token.json");
+    private static readonly string MockPingResponse = LoadStaticMockJson("ping.json");
+    private static readonly string MockCheckEnrollmentResponse = LoadStaticMockJson("check-enrollment.json");
+
+    public MockCbmsHttpHandler(MockCbmsDataStore dataStore)
     {
-        _return404ForGetAccountDetails = return404ForGetAccountDetails;
+        ArgumentNullException.ThrowIfNull(dataStore);
+        _dataStore = dataStore;
     }
-
-    private static readonly string MockTokenResponse = LoadMockJson("token.json");
-    private static readonly string MockPingResponse = LoadMockJson("ping.json");
-    private static readonly string MockCheckEnrollmentResponse = LoadMockJson("check-enrollment.json");
-    private static readonly string MockGetAccountDetailsResponse = LoadMockJson("get-account-details.json");
 
     protected override HttpResponseMessage Send(HttpRequestMessage request, CancellationToken cancellationToken) =>
         SendAsync(request, cancellationToken).GetAwaiter().GetResult();
 
-    protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+    protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
     {
         var url = request.RequestUri?.ToString() ?? "";
         var method = request.Method;
 
         if (url.Contains(TokenPath, StringComparison.OrdinalIgnoreCase) && method == HttpMethod.Post)
         {
-            return Task.FromResult(JsonResponse(MockTokenResponse));
+            return JsonResponse(MockTokenResponse);
         }
 
         if (url.Contains($"{ApiBase}/ping", StringComparison.OrdinalIgnoreCase) && method == HttpMethod.Get)
         {
-            return Task.FromResult(JsonResponse(MockPingResponse));
+            return JsonResponse(MockPingResponse);
         }
 
         if (url.Contains($"{ApiBase}/sebt/check-enrollment", StringComparison.OrdinalIgnoreCase) && method == HttpMethod.Post)
         {
-            return Task.FromResult(JsonResponse(MockCheckEnrollmentResponse));
+            return JsonResponse(MockCheckEnrollmentResponse);
         }
 
         if (url.Contains(GetAccountDetailsPath, StringComparison.OrdinalIgnoreCase) && method == HttpMethod.Post)
         {
-            if (_return404ForGetAccountDetails)
-            {
-                return Task.FromResult(new HttpResponseMessage(HttpStatusCode.NotFound)
-                {
-                    Content = new StringContent(GetAccountDetails404Body, Encoding.UTF8, "application/json")
-                });
-            }
-            return Task.FromResult(JsonResponse(MockGetAccountDetailsResponse));
+            var body = await request.Content!.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+            var phone = ExtractPhoneFromRequestBody(body);
+            var response = await _dataStore.GetResponseForPhoneAsync(phone, cancellationToken).ConfigureAwait(false);
+            return JsonResponse(response);
         }
 
         if (url.Contains(UpdateStdDtlsPath, StringComparison.OrdinalIgnoreCase) && method == HttpMethod.Patch)
-            return Task.FromResult(JsonResponse(UpdateStdDtlsSuccessBody));
-
-        return Task.FromResult(new HttpResponseMessage(HttpStatusCode.NotFound)
         {
-            Content = new StringContent($$"""{"error":"Mock handler: no response for {{method}} {{url}}"}""", Encoding.UTF8, "application/json")
-        });
+            var body = await request.Content!.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+            var response = await _dataStore.ApplyPatchAsync(body, cancellationToken).ConfigureAwait(false);
+
+            if (response.Contains("\"code\":\"404\""))
+            {
+                return new HttpResponseMessage(HttpStatusCode.NotFound)
+                {
+                    Content = new StringContent(response, Encoding.UTF8, "application/json")
+                };
+            }
+
+            return JsonResponse(response);
+        }
+
+        return new HttpResponseMessage(HttpStatusCode.NotFound)
+        {
+            Content = new StringContent(
+                $$"""{"error":"Mock handler: no response for {{method}} {{url}}"}""",
+                Encoding.UTF8,
+                "application/json")
+        };
+    }
+
+    private static string ExtractPhoneFromRequestBody(string json)
+    {
+        using var doc = JsonDocument.Parse(json);
+        return doc.RootElement.TryGetProperty("phnNm", out var phoneEl)
+            ? phoneEl.GetString() ?? ""
+            : "";
     }
 
     private static HttpResponseMessage JsonResponse(string json) =>
@@ -85,7 +100,7 @@ public sealed class MockCbmsHttpHandler : HttpMessageHandler
             Content = new StringContent(json, Encoding.UTF8, "application/json")
         };
 
-    private static string LoadMockJson(string fileName)
+    private static string LoadStaticMockJson(string fileName)
     {
         var assembly = Assembly.GetExecutingAssembly();
         var resourceName = $"SEBT.Portal.StatePlugins.CO.CbmsApi.TestData.CbmsMocks.{fileName}";

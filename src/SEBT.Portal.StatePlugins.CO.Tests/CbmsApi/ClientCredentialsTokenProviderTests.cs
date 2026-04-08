@@ -1,5 +1,6 @@
 using System.Net;
 using System.Text;
+using System.Text.Json;
 using SEBT.Portal.StatePlugins.CO.CbmsApi;
 using SEBT.Portal.StatePlugins.CO.CbmsApi.Mocks;
 using SEBT.Portal.StatePlugins.CO.CbmsApi.Models;
@@ -58,14 +59,24 @@ public class ClientCredentialsTokenProviderTests
         Assert.NotEmpty(response.StdntEnrollDtls);
     }
 
+    /// <summary>
+    /// Loads a mock household JSON file from embedded resources and strips
+    /// JavaScript-style comments so Kiota's strict JSON parser can handle it.
+    /// </summary>
     private static async Task<string> LoadGetAccountDetailsMockAsync()
     {
-        var resourceName = "SEBT.Portal.StatePlugins.CO.CbmsApi.TestData.CbmsMocks.get-account-details.json";
+        var resourceName = "SEBT.Portal.StatePlugins.CO.CbmsApi.TestData.CbmsMocks.get-account-details-largefamily2.jsonc";
         var apiAssembly = typeof(CbmsSebtApiClient).Assembly;
         await using var stream = apiAssembly.GetManifestResourceStream(resourceName)
             ?? throw new InvalidOperationException($"Resource not found: {resourceName}");
-        using var reader = new StreamReader(stream);
-        return await reader.ReadToEndAsync();
+
+        // Parse with comment tolerance, then re-serialize to produce clean JSON.
+        using var doc = await JsonDocument.ParseAsync(stream, new JsonDocumentOptions
+        {
+            CommentHandling = JsonCommentHandling.Skip,
+            AllowTrailingCommas = true
+        });
+        return JsonSerializer.Serialize(doc.RootElement);
     }
 
     private sealed class TokenAndGetAccountDetailsHandler : HttpMessageHandler
