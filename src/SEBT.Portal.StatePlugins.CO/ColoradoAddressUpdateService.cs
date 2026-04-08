@@ -13,8 +13,9 @@ namespace SEBT.Portal.StatePlugins.CO;
 /// Colorado address updates via CBMS <c>update-std-dtls</c> (student mailing address).
 /// Resolves the household with get-account-details using a normalized 10-digit phone in
 /// <see cref="AddressUpdateRequest.HouseholdIdentifierValue"/>.
-/// When multiple children are on the account, updates are rejected until the contract carries a disambiguator.
-/// Successful updates require CBMS to return <c>respCd</c> "200" (string); other codes are treated as failure.
+/// When multiple children are on the account, CBMS receives one PATCH whose body is an array of update payloads
+/// (same portal address mapped per student row from get-account-details).
+/// Successful updates require CBMS <c>respCd</c> <c>200</c> (OpenAPI example) or <c>00</c> (observed UAT); other codes are failure.
 /// </summary>
 [Export(typeof(IAddressUpdateService))]
 [Export(typeof(IStatePlugin))]
@@ -106,34 +107,43 @@ public class ColoradoAddressUpdateService : IAddressUpdateService
         }
         catch (ApiException ex)
         {
-            return AddressUpdateResult.BackendError("CBMS_ERROR", ex.Message);
+            return BackendErrorFromApiException(ex);
         }
 
         var students = accountResponse?.StdntEnrollDtls ?? [];
-        var withChildId = students.Where(s => !string.IsNullOrWhiteSpace(s.SebtChldId)).ToList();
+        var actionable = students
+            .Select(row => (Row: row, Ids: CbmsGetAccountStudentDetailIds.Resolve(row)))
+            .Where(x => CbmsGetAccountStudentDetailIds.CanBuildUpdatePayload(x.Ids))
+            .ToList();
 
-        if (withChildId.Count == 0)
+        if (actionable.Count == 0)
         {
+            if (students.Count == 0)
+            {
+                return AddressUpdateResult.PolicyRejected(
+                    "HOUSEHOLD_NOT_FOUND",
+                    $"CBMS get-account-details returned no enrollment rows for phone {phone10}. " +
+                    "Confirm this environment (UAT vs production) and that the guardian phone on the SEBT account matches (10 digits, no separate ‘account’ phone field).");
+            }
+
             return AddressUpdateResult.PolicyRejected(
                 "HOUSEHOLD_NOT_FOUND",
-                "No household record with a child identifier was found for this phone number.");
+                $"CBMS returned {students.Count} enrollment row(s) for phone {phone10}, but none had usable sebtChldId or sebtAppId after parsing. " +
+                CbmsGetAccountStudentDetailIds.FormatDiagnosticsHint(students[0]));
         }
 
-        if (withChildId.Count > 1)
-        {
-            return AddressUpdateResult.PolicyRejected(
-                "AMBIGUOUS_HOUSEHOLD",
-                "More than one child is associated with this phone number; the portal must specify which student to update.");
-        }
-
-        var studentRow = withChildId[0];
-        var updateBody = CbmsAddressUpdateMapper.ToUpdateStudentDetailsRequest(request.Address, studentRow);
+        var updateBodies = actionable
+            .Select(x => CbmsAddressUpdateMapper.ToUpdateStudentDetailsRequest(
+                request.Address,
+                x.Row,
+                x.Ids.SebtChldId,
+                x.Ids.SebtAppId))
+            .ToList();
 
         try
         {
-            var updateResponse = await client.Sebt.UpdateStdDtls.PatchAsync(updateBody, cancellationToken: cancellationToken);
-            if (updateResponse != null &&
-                string.Equals(updateResponse.RespCd, "200", StringComparison.Ordinal))
+            var updateResponse = await client.Sebt.UpdateStdDtls.PatchAsync(updateBodies, cancellationToken: cancellationToken);
+            if (updateResponse != null && IsCbmsUpdateSuccessCode(updateResponse.RespCd))
             {
                 return AddressUpdateResult.Success();
             }
@@ -147,9 +157,23 @@ public class ColoradoAddressUpdateService : IAddressUpdateService
         }
         catch (ApiException ex)
         {
-            return AddressUpdateResult.BackendError("CBMS_ERROR", ex.Message);
+            return BackendErrorFromApiException(ex);
         }
     }
+
+    /// <summary>Kiota uses the HTTP reason phrase (e.g. "Bad Request") as <see cref="ApiException.Message"/> — include status for clarity.</summary>
+    private static AddressUpdateResult BackendErrorFromApiException(ApiException ex)
+    {
+        var status = ex.ResponseStatusCode;
+        var msg = string.IsNullOrWhiteSpace(ex.Message) ? "(no error message)" : ex.Message.Trim();
+        var detail = status is >= 100 and < 600 ? $"HTTP {(int)status}: {msg}" : msg;
+        return AddressUpdateResult.BackendError("CBMS_ERROR", detail);
+    }
+
+    /// <summary>CBMS examples use "200"; live UAT has returned "00" with respMsg Success.</summary>
+    internal static bool IsCbmsUpdateSuccessCode(string? respCd) =>
+        string.Equals(respCd, "200", StringComparison.Ordinal)
+        || string.Equals(respCd, "00", StringComparison.Ordinal);
 
     private static AddressUpdateResult MapErrorResponse(ErrorResponse ex)
     {
@@ -159,10 +183,32 @@ public class ColoradoAddressUpdateService : IAddressUpdateService
         return AddressUpdateResult.BackendError($"CBMS_{ex.ResponseStatusCode}", message);
     }
 
+    /// <summary>
+    /// CBMS 4xx/5xx responses deserialize to <see cref="ErrorResponse"/>; when the body omits
+    /// <c>errorDetails</c>, Kiota leaves <see cref="ApiException.Message"/> as the HTTP reason phrase only (e.g. "Bad Request").
+    /// Prefix with the status code (and surface correlation id) so the portal does not return a bare phrase as ProblemDetails detail.
+    /// </summary>
     private static string FormatErrorResponse(ErrorResponse ex)
     {
-        var detail = ex.ErrorDetails?.FirstOrDefault()?.Message;
-        return !string.IsNullOrWhiteSpace(detail) ? detail : ex.Message;
+        var status = ex.ResponseStatusCode;
+        var prefix = status is >= 100 and < 600
+            ? $"HTTP {status}"
+            : "CBMS error";
+
+        var fromDetails = ex.ErrorDetails?
+            .Select(d => d.Message)
+            .FirstOrDefault(m => !string.IsNullOrWhiteSpace(m))
+            ?.Trim();
+
+        var body = !string.IsNullOrWhiteSpace(fromDetails)
+            ? fromDetails
+            : (string.IsNullOrWhiteSpace(ex.Message) ? "(no message)" : ex.Message.Trim());
+
+        var msg = $"{prefix}: {body}";
+        if (!string.IsNullOrWhiteSpace(ex.CorrelationId))
+            msg += $" (correlationId: {ex.CorrelationId})";
+
+        return msg;
     }
 
     internal static bool TryNormalizePhoneNumber(string? value, out string phone10)

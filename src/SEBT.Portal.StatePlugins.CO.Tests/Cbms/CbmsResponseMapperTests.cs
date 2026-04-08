@@ -238,7 +238,8 @@ public class CbmsResponseMapperTests
         var app = Assert.Single(result.Applications);
         var child = Assert.Single(app.Children);
         Assert.Equal("AppChild", child.FirstName);
-        Assert.Equal(ApplicationStatus.Pending, child.Status);
+        Assert.Equal(ApplicationStatus.Pending, app.ApplicationStatus);
+        Assert.Equal(IssuanceType.SummerEbt, app.IssuanceType);
     }
 
     [Fact]
@@ -265,7 +266,8 @@ public class CbmsResponseMapperTests
         var app = Assert.Single(result.Applications);
         var child = Assert.Single(app.Children);
         Assert.Equal("ApprovedChild", child.FirstName);
-        Assert.Equal(ApplicationStatus.Approved, child.Status);
+        Assert.Equal(ApplicationStatus.Approved, app.ApplicationStatus);
+        Assert.Equal(IssuanceType.SummerEbt, app.IssuanceType);
     }
 
     [Fact]
@@ -285,24 +287,6 @@ public class CbmsResponseMapperTests
         Assert.Single(result.SummerEbtCases);
         Assert.Equal("UnknownChild", result.SummerEbtCases[0].ChildFirstName);
         Assert.Empty(result.Applications);
-    }
-
-    [Fact]
-    public void MapToHouseholdData_case_has_eligibility_source_and_issuance_type()
-    {
-        var student = CreateMinimalStudent();
-        student.EligSrc = "DIRC";
-        var response = new GetAccountDetailsResponse
-        {
-            StdntEnrollDtls = new List<GetAccountStudentDetail> { student }
-        };
-        var piiVisibility = new PiiVisibility(IncludeAddress: false, IncludeEmail: false, IncludePhone: false);
-
-        var result = CbmsResponseMapper.MapToHouseholdData(response, "8185551234", piiVisibility);
-
-        var caseRecord = Assert.Single(result.SummerEbtCases);
-        Assert.Equal("DIRC", caseRecord.EligibilitySource);
-        Assert.Equal(IssuanceType.SummerEbt, caseRecord.IssuanceType);
     }
 
     [Fact]

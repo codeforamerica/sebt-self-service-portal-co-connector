@@ -51,8 +51,8 @@ public class CbmsAddressUpdateMapperTests
         };
         var row = new GetAccountStudentDetail
         {
-            SebtChldId = "CH-1",
-            SebtAppId = "APP-1",
+            SebtChldId = 88291,
+            SebtAppId = 556677,
             GurdFstNm = "Jane",
             GurdLstNm = "Doe",
             GurdEmailAddr = "j@example.com"
@@ -60,8 +60,8 @@ public class CbmsAddressUpdateMapperTests
 
         var body = CbmsAddressUpdateMapper.ToUpdateStudentDetailsRequest(portal, row);
 
-        Assert.Equal("CH-1", body.SebtChldId);
-        Assert.Equal("APP-1", body.SebtAppId);
+        Assert.Equal("88291", body.SebtChldId);
+        Assert.Equal("556677", body.SebtAppId);
         Assert.Equal("Jane", body.GurdFstNm);
         Assert.Equal("Doe", body.GurdLstNm);
         Assert.Equal("j@example.com", body.GurdEmailAddr);

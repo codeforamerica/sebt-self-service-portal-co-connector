@@ -19,6 +19,8 @@ public sealed class MockCbmsHttpHandler : HttpMessageHandler
     private const string TokenPath = "ext-uat-c-cbms-oauth-app/token";
     private const string ApiBase = "ext-uat-c-cbms-cfa-eapi/api";
     private const string GetAccountDetailsPath = "sebt/get-account-details";
+    private const string UpdateStdDtlsPath = "sebt/update-std-dtls";
+    private static readonly string UpdateStdDtlsSuccessBody = """{"respCd":"200","respMsg":"Success"}""";
     private static readonly string GetAccountDetails404Body = """{"apiName":"cbms-sebt-eapi-impl","correlationId":"test","timestamp":"2026-01-30T16:00:35.143Z","errorDetails":[{"code":"404","message":"Not Found"}]}""";
 
     private readonly bool _return404ForGetAccountDetails;
@@ -67,6 +69,9 @@ public sealed class MockCbmsHttpHandler : HttpMessageHandler
             }
             return Task.FromResult(JsonResponse(MockGetAccountDetailsResponse));
         }
+
+        if (url.Contains(UpdateStdDtlsPath, StringComparison.OrdinalIgnoreCase) && method == HttpMethod.Patch)
+            return Task.FromResult(JsonResponse(UpdateStdDtlsSuccessBody));
 
         return Task.FromResult(new HttpResponseMessage(HttpStatusCode.NotFound)
         {

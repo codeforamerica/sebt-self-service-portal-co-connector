@@ -21,7 +21,9 @@ namespace SEBT.Portal.StatePlugins.CO.Tests.CbmsApi;
 ///     <c>Cbms__ClientId</c> and <c>Cbms__ClientSecret</c>
 ///   </item>
 /// </list>
-/// Enable mock responses (no real API calls): <c>Cbms:UseMockResponses=true</c> or <c>Cbms__UseMockResponses=true</c>
+/// Enable mock responses (no real API calls): <c>Cbms:UseMockResponses=true</c> or <c>Cbms__UseMockResponses=true</c>.
+/// API and token URLs default to <see cref="CbmsDefaults"/> UAT values;
+/// optional overrides: <c>Cbms:ApiBaseUrl</c> / <c>Cbms:TokenEndpointUrl</c> (or env <c>Cbms__*</c>).
 /// </remarks>
 public class CbmsSandboxFixture : IAsyncLifetime
 {
@@ -33,6 +35,12 @@ public class CbmsSandboxFixture : IAsyncLifetime
 
     /// <summary>Whether mock responses are being used instead of the real sandbox.</summary>
     public bool UseMockResponses { get; private set; }
+
+    /// <summary>
+    /// In-memory configuration for <see cref="SEBT.Portal.StatePlugins.CO.ColoradoAddressUpdateService"/> against UAT,
+    /// or null when credentials are not configured (including mock-response mode).
+    /// </summary>
+    public IConfiguration? ColoradoCbmsConfiguration { get; private set; }
 
     public Task InitializeAsync()
     {
@@ -67,11 +75,23 @@ public class CbmsSandboxFixture : IAsyncLifetime
         }
 
         CredentialsConfigured = true;
+        var apiUrl = configuration["Cbms:ApiBaseUrl"] ?? CbmsDefaults.SandboxApiBaseUrl;
+        var tokenUrl = configuration["Cbms:TokenEndpointUrl"] ?? CbmsDefaults.SandboxTokenEndpointUrl;
         Client = CbmsSebtApiClientFactory.Create(
             clientId,
             clientSecret,
-            CbmsDefaults.SandboxApiBaseUrl,
-            CbmsDefaults.SandboxTokenEndpointUrl);
+            apiUrl,
+            tokenUrl);
+
+        ColoradoCbmsConfiguration = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["Cbms:ClientId"] = clientId,
+                ["Cbms:ClientSecret"] = clientSecret,
+                ["Cbms:ApiBaseUrl"] = apiUrl,
+                ["Cbms:TokenEndpointUrl"] = tokenUrl
+            })
+            .Build();
 
         return Task.CompletedTask;
     }

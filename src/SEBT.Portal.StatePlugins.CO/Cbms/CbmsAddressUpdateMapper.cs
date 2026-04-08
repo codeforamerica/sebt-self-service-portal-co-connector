@@ -1,3 +1,4 @@
+using System.Globalization;
 using SEBT.Portal.StatePlugins.CO.CbmsApi.Models;
 using HouseholdAddress = SEBT.Portal.StatesPlugins.Interfaces.Models.Household.Address;
 
@@ -11,17 +12,23 @@ internal static class CbmsAddressUpdateMapper
     /// <summary>
     /// Builds a CBMS PATCH body: required <c>addr</c> plus identifiers from the student row returned by get-account-details.
     /// </summary>
+    /// <param name="resolvedSebtChldId">
+    /// Optional id from <see cref="CbmsGetAccountStudentDetailIds.Resolve"/> when CBMS used non-standard JSON keys.
+    /// </param>
+    /// <param name="resolvedSebtAppId">Optional resolved application id (same).</param>
     public static UpdateStudentDetailsRequest ToUpdateStudentDetailsRequest(
         HouseholdAddress portalAddress,
-        GetAccountStudentDetail studentRow)
+        GetAccountStudentDetail studentRow,
+        string? resolvedSebtChldId = null,
+        string? resolvedSebtAppId = null)
     {
         ArgumentNullException.ThrowIfNull(portalAddress);
         ArgumentNullException.ThrowIfNull(studentRow);
 
         return new UpdateStudentDetailsRequest
         {
-            SebtChldId = studentRow.SebtChldId,
-            SebtAppId = studentRow.SebtAppId,
+            SebtChldId = resolvedSebtChldId ?? studentRow.SebtChldId?.ToString(CultureInfo.InvariantCulture),
+            SebtAppId = resolvedSebtAppId ?? studentRow.SebtAppId?.ToString(CultureInfo.InvariantCulture),
             Addr = ToCbmsAddress(portalAddress),
             GurdFstNm = studentRow.GurdFstNm,
             GurdLstNm = studentRow.GurdLstNm,
