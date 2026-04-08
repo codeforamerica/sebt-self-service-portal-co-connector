@@ -123,13 +123,13 @@ public class ColoradoAddressUpdateService : IAddressUpdateService
             {
                 return AddressUpdateResult.PolicyRejected(
                     "HOUSEHOLD_NOT_FOUND",
-                    $"CBMS get-account-details returned no enrollment rows for phone {phone10}. " +
+                    "CBMS get-account-details returned no enrollment rows for the household identifier used for lookup. " +
                     "Confirm this environment (UAT vs production) and that the guardian phone on the SEBT account matches lookup normalization, same as household by phone.");
             }
 
             return AddressUpdateResult.PolicyRejected(
                 "HOUSEHOLD_NOT_FOUND",
-                $"CBMS returned {students.Count} enrollment row(s) for phone {phone10}, but none had usable sebtChldId or sebtAppId after parsing. " +
+                $"CBMS returned {students.Count} enrollment row(s), but none had usable sebtChldId or sebtAppId after parsing. " +
                 CbmsGetAccountStudentDetailIds.FormatDiagnosticsHint(students[0]));
         }
 
