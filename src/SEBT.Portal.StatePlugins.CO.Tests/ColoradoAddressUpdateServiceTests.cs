@@ -8,25 +8,6 @@ namespace SEBT.Portal.StatePlugins.CO.Tests;
 public class ColoradoAddressUpdateServiceTests
 {
     [Theory]
-    [InlineData("3035550199", "3035550199")]
-    [InlineData("(303) 555-0199", "3035550199")]
-    [InlineData("+1 303 555 0199", "3035550199")]
-    public void TryNormalizePhoneNumber_accepts_common_formats(string input, string expected)
-    {
-        Assert.True(ColoradoAddressUpdateService.TryNormalizePhoneNumber(input, out var phone));
-        Assert.Equal(expected, phone);
-    }
-
-    [Theory]
-    [InlineData("")]
-    [InlineData("12345")]
-    [InlineData("user@example.com")]
-    public void TryNormalizePhoneNumber_rejects_non_ten_digit_phone(string input)
-    {
-        Assert.False(ColoradoAddressUpdateService.TryNormalizePhoneNumber(input, out _));
-    }
-
-    [Theory]
     [InlineData("200", true)]
     [InlineData("00", true)]
     [InlineData("422", false)]
@@ -34,13 +15,6 @@ public class ColoradoAddressUpdateServiceTests
     public void IsCbmsUpdateSuccessCode_spec_and_UAT(string? respCd, bool expected)
     {
         Assert.Equal(expected, ColoradoAddressUpdateService.IsCbmsUpdateSuccessCode(respCd));
-    }
-
-    [Fact]
-    public void TryNormalizePhoneNumber_rejects_null()
-    {
-        Assert.False(ColoradoAddressUpdateService.TryNormalizePhoneNumber(null, out var phone));
-        Assert.Equal(string.Empty, phone);
     }
 
     [Theory]
@@ -60,6 +34,25 @@ public class ColoradoAddressUpdateServiceTests
         };
 
         var result = await service.UpdateAddressAsync(request);
+
+        Assert.True(result.IsSuccess);
+        Assert.True(handler.ReceivedPatch);
+    }
+
+    [Theory]
+    [InlineData("3035550199")]
+    [InlineData("(303) 555-0199")]
+    [InlineData("+1 303 555 0199")]
+    public async Task UpdateAddressAsync_accepts_formatted_US_phones_like_case_lookup(string householdPhone)
+    {
+        var handler = new AddressUpdatePipelineMessageHandler();
+        var service = new ColoradoAddressUpdateService(CbmsTestConfiguration(), handler);
+
+        var result = await service.UpdateAddressAsync(new AddressUpdateRequest
+        {
+            HouseholdIdentifierValue = householdPhone,
+            Address = ValidAddress()
+        });
 
         Assert.True(result.IsSuccess);
         Assert.True(handler.ReceivedPatch);

@@ -11,8 +11,8 @@ namespace SEBT.Portal.StatePlugins.CO;
 
 /// <summary>
 /// Colorado address updates via CBMS <c>update-std-dtls</c> (student mailing address).
-/// Resolves the household with get-account-details using a normalized 10-digit phone in
-/// <see cref="AddressUpdateRequest.HouseholdIdentifierValue"/>.
+/// Resolves the household with get-account-details using <see cref="PhoneNormalizer"/> on
+/// <see cref="AddressUpdateRequest.HouseholdIdentifierValue"/>; uses the same normalization as <see cref="ColoradoSummerEbtCaseService"/> phone lookup.
 /// When multiple children are on the account, CBMS receives one PATCH whose body is an array of update payloads
 /// (same portal address mapped per student row from get-account-details).
 /// Successful updates require CBMS <c>respCd</c> <c>200</c> (OpenAPI example) or <c>00</c> (observed UAT); other codes are failure.
@@ -54,7 +54,7 @@ public class ColoradoAddressUpdateService : IAddressUpdateService
         {
             return AddressUpdateResult.PolicyRejected(
                 "INVALID_IDENTIFIER",
-                "Colorado CBMS requires a 10-digit phone number in HouseholdIdentifierValue (optionally formatted).");
+                "Colorado CBMS requires a valid US phone number in HouseholdIdentifierValue.");
         }
 
         if (!CbmsAddressUpdateMapper.TryValidatePortalAddress(request.Address, out var validationError))
@@ -62,11 +62,12 @@ public class ColoradoAddressUpdateService : IAddressUpdateService
             return AddressUpdateResult.PolicyRejected("INVALID_ADDRESS", validationError ?? "Invalid address.");
         }
 
-        if (!TryNormalizePhoneNumber(request.HouseholdIdentifierValue, out var phone10))
+        var phone10 = PhoneNormalizer.Normalize(request.HouseholdIdentifierValue);
+        if (string.IsNullOrEmpty(phone10))
         {
             return AddressUpdateResult.PolicyRejected(
                 "INVALID_IDENTIFIER",
-                "Colorado CBMS requires a 10-digit phone number in HouseholdIdentifierValue (optionally formatted).");
+                "Colorado CBMS requires a valid US phone number in HouseholdIdentifierValue, same normalization as household lookup.");
         }
 
         var clientId = _configuration?["Cbms:ClientId"] ?? Environment.GetEnvironmentVariable("Cbms__ClientId");
@@ -123,7 +124,7 @@ public class ColoradoAddressUpdateService : IAddressUpdateService
                 return AddressUpdateResult.PolicyRejected(
                     "HOUSEHOLD_NOT_FOUND",
                     $"CBMS get-account-details returned no enrollment rows for phone {phone10}. " +
-                    "Confirm this environment (UAT vs production) and that the guardian phone on the SEBT account matches (10 digits, no separate ‘account’ phone field).");
+                    "Confirm this environment (UAT vs production) and that the guardian phone on the SEBT account matches lookup normalization, same as household by phone.");
             }
 
             return AddressUpdateResult.PolicyRejected(
@@ -209,27 +210,5 @@ public class ColoradoAddressUpdateService : IAddressUpdateService
             msg += $" (correlationId: {ex.CorrelationId})";
 
         return msg;
-    }
-
-    internal static bool TryNormalizePhoneNumber(string? value, out string phone10)
-    {
-        if (value is null)
-        {
-            phone10 = string.Empty;
-            return false;
-        }
-
-        var digits = new string(value.Where(char.IsDigit).ToArray());
-        if (digits.Length == 11 && digits.StartsWith("1", StringComparison.Ordinal))
-            digits = digits[1..];
-
-        if (digits.Length == 10)
-        {
-            phone10 = digits;
-            return true;
-        }
-
-        phone10 = string.Empty;
-        return false;
     }
 }
