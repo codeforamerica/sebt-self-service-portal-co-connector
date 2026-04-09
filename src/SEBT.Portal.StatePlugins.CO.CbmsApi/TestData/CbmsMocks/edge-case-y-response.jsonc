@@ -2,7 +2,7 @@
     "stdntEnrollDtls": [
         {
             "gurdFstNm": "Orval",
-            "gurdLstNm": "Plympton",
+            "gurdLstNm": "MockPlympton",
             "gurdPhnNm": "7205553018",
             "gurdEmailAddr": "Raymond.Ashford@mailhost.net",
             "sebtYear": 2026,
@@ -11,7 +11,7 @@
             "stdLstNm": "Trelawney",
             "stdDob": "2019-10-25",
             "stdntEligSts": "AM", // don't know what this means
-            "sebtAppSts": "", // ??
+            "sebtAppSts": "PN", 
             "eligSrc": "CBMS",
             "sebtChldId": 1130129,
             "sebtChldCwin": 9507474,
@@ -32,7 +32,7 @@
         },
         {
             "gurdFstNm": "Bea",
-            "gurdLstNm": "Worth",
+            "gurdLstNm": "MockWorth",
             "gurdPhnNm": "7205553018",
             "gurdEmailAddr": "Romanth.Aston@iol.us",
             "sebtYear": 2026,
@@ -41,7 +41,7 @@
             "stdLstNm": "Redden",
             "stdDob": "2008-06-03",
             "stdntEligSts": "DD",
-            "sebtAppSts": "DENIED",
+            "sebtAppSts": "DU",
             "eligSrc": "PK",
             "sebtChldId": 1143505,
             "sebtChldCwin": 8807590,
@@ -62,7 +62,7 @@
         },
         {
             "gurdFstNm": "NATASHIA",
-            "gurdLstNm": "STAPLETON",
+            "gurdLstNm": "MockSTAPLETON",
             "gurdPhnNm": "7205553018",
             "gurdEmailAddr": "",
             "sebtYear": 2026,
@@ -71,7 +71,7 @@
             "stdLstNm": "STAPLETON",
             "stdDob": "2009-02-17",
             "stdntEligSts": "AP",
-            "sebtAppSts": "APPROVED",
+            "sebtAppSts": "NN",
             "eligSrc": "CDE",
             "sebtChldId": 1196496,
             "sebtChldCwin": 10610005,
@@ -92,7 +92,7 @@
         },
         {
             "gurdFstNm": "KRYSTAL",
-            "gurdLstNm": "ASHLEY",
+            "gurdLstNm": "MockASHLEY",
             "gurdPhnNm": "7205553018",
             "gurdEmailAddr": "",
             "sebtYear": 2026,
@@ -101,7 +101,7 @@
             "stdLstNm": "GODARD",
             "stdDob": "2014-04-22",
             "stdntEligSts": "AP",
-            "sebtAppSts": "APPROVED",
+            "sebtAppSts": "NN",
             "eligSrc": "CDE",
             "sebtChldId": 1194445,
             "sebtChldCwin": 10607954,
@@ -122,7 +122,7 @@
         },
         {
             "gurdFstNm": "DEBORA",
-            "gurdLstNm": "ACKERS",
+            "gurdLstNm": "MockACKERS",
             "gurdPhnNm": "7205553018",
             "gurdEmailAddr": "",
             "sebtYear": 2026,
@@ -131,7 +131,7 @@
             "stdLstNm": "ACKERS",
             "stdDob": "2014-03-07",
             "stdntEligSts": "AP",
-            "sebtAppSts": "APPROVED",
+            "sebtAppSts": "PW",
             "eligSrc": "CDE",
             "sebtChldId": 1194473,
             "sebtChldCwin": 10607982,
@@ -152,7 +152,7 @@
         },
         {
             "gurdFstNm": "Donella",
-            "gurdLstNm": "Richard",
+            "gurdLstNm": "MockRichard",
             "gurdPhnNm": "7205553018",
             "gurdEmailAddr": "Richard.Andarton@hotmail.net",
             "sebtYear": 2026,
@@ -161,7 +161,7 @@
             "stdLstNm": "Bristow",
             "stdDob": "2019-09-27",
             "stdntEligSts": "DD",
-            "sebtAppSts": "DENIED",
+            "sebtAppSts": "DU",
             "eligSrc": "PK",
             "sebtChldId": 1144883,
             "sebtChldCwin": 9536322,
@@ -182,7 +182,7 @@
         },
         {
             "gurdFstNm": "Kristel",
-            "gurdLstNm": "Hammel",
+            "gurdLstNm": "MockHammel",
             "gurdPhnNm": "7205553018",
             "gurdEmailAddr": "Fleming.Eytinge@fmr.edu",
             "sebtYear": 2026,
@@ -191,7 +191,7 @@
             "stdLstNm": "Godard",
             "stdDob": "2017-04-21",
             "stdntEligSts": "PE",
-            "sebtAppSts": "PENDING",
+            "sebtAppSts": "PI",
             "eligSrc": "PK",
             "sebtChldId": 1146287,
             "sebtChldCwin": 9480938,
@@ -212,7 +212,7 @@
         },
         {
             "gurdFstNm": "Della",
-            "gurdLstNm": "Alden",
+            "gurdLstNm": "MockAlden",
             "gurdPhnNm": "7205553018",
             "gurdEmailAddr": "",
             "sebtYear": 2026,
@@ -221,7 +221,7 @@
             "stdLstNm": "Alden",
             "stdDob": "2014-08-08",
             "stdntEligSts": "DD",
-            "sebtAppSts": "DENIED",
+            "sebtAppSts": "DU",
             "eligSrc": "PK",
             "sebtChldId": 1140804,
             "sebtChldCwin": 8912650,
@@ -242,7 +242,7 @@
         },
         {
             "gurdFstNm": "Donnette",
-            "gurdLstNm": "Byington",
+            "gurdLstNm": "MockByington",
             "gurdPhnNm": "7205553018",
             "gurdEmailAddr": "Ferguson.Ethelbert@mailer.net",
             "sebtYear": 2026,
@@ -251,7 +251,7 @@
             "stdLstNm": "Hammel",
             "stdDob": "2009-07-14",
             "stdntEligSts": "AM", 
-            "sebtAppSts": "", // ??
+            "sebtAppSts": "PW", // ??
             "eligSrc": "CBMS",  // ??
             "sebtChldId": 1131769,
             "sebtChldCwin": 9511095,
@@ -272,7 +272,7 @@
         },
         {
             "gurdFstNm": "Donnette",
-            "gurdLstNm": "Byington",
+            "gurdLstNm": "MockByington",
             "gurdPhnNm": "7205553018",
             "gurdEmailAddr": "Ferguson.Ethelbert@mailer.net",
             "sebtYear": 2026,
@@ -281,7 +281,7 @@
             "stdLstNm": "Hammel",
             "stdDob": "2010-06-10",
             "stdntEligSts": "AM",  // ??
-            "sebtAppSts": "", // ??
+            "sebtAppSts": "PW", // ??
             "eligSrc": "CBMS",
             "sebtChldId": 1131770,
             "sebtChldCwin": 9511096,

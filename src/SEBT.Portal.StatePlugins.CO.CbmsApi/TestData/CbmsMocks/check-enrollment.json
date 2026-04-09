@@ -1,10 +1,10 @@
 {
-  "respCd": "200",
+  "respCd": "00",
   "respMsg": "Success",
   "stdntDtls": [
     {
       "stdFstNm": "John",
-      "stdLstNm": "Doe",
+      "stdLstNm": "MockDoe",
       "stdDob": "2015-05-15",
       "mtchCnfd": 95,
       "stdntEligSts": "ELIGIBLE",

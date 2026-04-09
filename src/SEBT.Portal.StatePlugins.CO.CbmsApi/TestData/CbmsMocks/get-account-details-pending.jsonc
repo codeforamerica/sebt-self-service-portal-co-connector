@@ -2,7 +2,7 @@
     "stdntEnrollDtls": [
         {
             "gurdFstNm": "PENDING",
-            "gurdLstNm": "PERSON",
+            "gurdLstNm": "MOCKPERSON",
             "gurdPhnNm": "7209289672",
             "gurdEmailAddr": "sebt.co+minimal@codeforamerica.org",
             "sebtYear": 2026,
@@ -11,7 +11,7 @@
             "stdLstNm": "PERSON",
             "stdDob": "2013-10-29",
             "stdntEligSts": "PE",
-            "sebtAppSts": "PENDING", // currently returning blank but will be updated - for now assuming "APPROVED", "PENDING", "DENIED" "UNDER REVIEW" "CANCELLED"
+            "sebtAppSts": "PI",
             "eligSrc": "PK", // assuming PEAK
             "sebtChldId": 1200507,
             "sebtChldCwin": 10615599,
