@@ -84,7 +84,8 @@ internal static class CbmsResponseMapper
             BenefitAvailableDate = ParseDateOnly(s.BenAvalDt),
             BenefitExpirationDate = ParseDateOnly(s.BenExpDt),
             EligibilitySource = s.EligSrc,
-            IssuanceType = IssuanceType.SummerEbt,  // CO does not co-load cards
+            IssuanceType = IssuanceType.SummerEbt,
+            IsStreamlineCertified = !EligibilitySourceClassifier.IsApplicationBased(s.EligSrc),
         };
     }
 
