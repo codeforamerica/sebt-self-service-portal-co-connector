@@ -83,8 +83,6 @@ internal static class CbmsResponseMapper
             EbtCardBalance = s.CardBal.HasValue ? (decimal)s.CardBal.Value : null,
             BenefitAvailableDate = ParseDateOnly(s.BenAvalDt),
             BenefitExpirationDate = ParseDateOnly(s.BenExpDt),
-            EligibilitySource = s.EligSrc,
-            IssuanceType = IssuanceType.SummerEbt,  // CO does not co-load cards
         };
     }
 
@@ -123,11 +121,11 @@ internal static class CbmsResponseMapper
             {
                 ApplicationNumber = first.SebtAppId.ToString(),
                 ApplicationStatus = MapApplicationStatus(first.SebtAppSts),
+                IssuanceType = IssuanceType.SummerEbt,
                 Children = g.Select(c => new Child
                 {
                     FirstName = c.StdFstNm ?? string.Empty,
-                    LastName = c.StdLstNm ?? string.Empty,
-                    Status = MapApplicationStatus(c.SebtAppSts)
+                    LastName = c.StdLstNm ?? string.Empty
                 }).ToList()
             };
         }).ToList();

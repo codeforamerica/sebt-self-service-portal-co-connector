@@ -77,15 +77,31 @@ public sealed class MockCbmsDataStore
     {
         await EnsureSeededAsync(cancellationToken).ConfigureAwait(false);
 
-        using var patchDoc = JsonDocument.Parse(requestBodyJson);
+        using var patchDoc = JsonDocument.Parse(requestBodyJson, JsonOptions);
         var root = patchDoc.RootElement;
 
-        var sebtChldId = root.TryGetProperty("sebtChldId", out var chldIdEl)
-            ? chldIdEl.GetString()
-            : null;
+        if (root.ValueKind == JsonValueKind.Array)
+        {
+            var any = false;
+            foreach (var el in root.EnumerateArray())
+            {
+                if (await TryApplySinglePatchAsync(el, cancellationToken).ConfigureAwait(false))
+                    any = true;
+            }
 
+            return any ? SuccessResponse : NotFoundResponse;
+        }
+
+        return await TryApplySinglePatchAsync(root, cancellationToken).ConfigureAwait(false)
+            ? SuccessResponse
+            : NotFoundResponse;
+    }
+
+    private async Task<bool> TryApplySinglePatchAsync(JsonElement patchRoot, CancellationToken cancellationToken)
+    {
+        var sebtChldId = TryGetSebtChldIdString(patchRoot);
         if (string.IsNullOrEmpty(sebtChldId))
-            return NotFoundResponse;
+            return false;
 
         foreach (var phone in _knownPhones)
         {
@@ -110,13 +126,21 @@ public sealed class MockCbmsDataStore
 
                 if (studentChldId != sebtChldId) continue;
 
-                var mutated = ApplyMutations(json, i, root);
+                var mutated = ApplyMutations(json, i, patchRoot);
                 await _cache.SetAsync(cacheKey, mutated, options: CacheOptions, cancellationToken: cancellationToken).ConfigureAwait(false);
-                return SuccessResponse;
+                return true;
             }
         }
 
-        return NotFoundResponse;
+        return false;
+    }
+
+    private static string? TryGetSebtChldIdString(JsonElement el)
+    {
+        if (!el.TryGetProperty("sebtChldId", out var chldIdEl)) return null;
+        return chldIdEl.ValueKind == JsonValueKind.Number
+            ? chldIdEl.GetInt32().ToString()
+            : chldIdEl.GetString();
     }
 
     private async Task EnsureSeededAsync(CancellationToken cancellationToken)
