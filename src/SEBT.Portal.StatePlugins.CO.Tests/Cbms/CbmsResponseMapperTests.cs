@@ -104,7 +104,7 @@ public class CbmsResponseMapperTests
         Assert.Equal(ApplicationStatus.Approved, @case.ApplicationStatus);
         Assert.Equal("case-123", @case.EbtCaseNumber);
         Assert.Equal("4321", @case.EbtCardLastFour);
-        Assert.Equal("active", @case.EbtCardStatus);
+        Assert.Equal("Active", @case.EbtCardStatus);
     }
 
     [Theory]
@@ -288,6 +288,47 @@ public class CbmsResponseMapperTests
         Assert.Single(result.SummerEbtCases);
         Assert.Equal("UnknownChild", result.SummerEbtCases[0].ChildFirstName);
         Assert.Empty(result.Applications);
+    }
+
+    [Fact]
+    public void MapToHouseholdData_case_has_eligibility_source_and_issuance_type()
+    {
+        var student = CreateMinimalStudent();
+        student.EligSrc = "DIRC";
+        var response = new GetAccountDetailsResponse
+        {
+            StdntEnrollDtls = new List<GetAccountStudentDetail> { student }
+        };
+        var piiVisibility = new PiiVisibility(IncludeAddress: false, IncludeEmail: false, IncludePhone: false);
+
+        var result = CbmsResponseMapper.MapToHouseholdData(response, "8185551234", piiVisibility);
+
+        var caseRecord = Assert.Single(result.SummerEbtCases);
+        Assert.Equal("DIRC", caseRecord.EligibilitySource);
+        Assert.Equal(IssuanceType.SummerEbt, caseRecord.IssuanceType);
+    }
+
+    [Theory]
+    [InlineData("ACTIVE", "Active")]
+    [InlineData("REQUESTED", "Requested")]
+    [InlineData("MAILED", "Mailed")]
+    [InlineData("DEACTIVATED", "Deactivated")]
+    [InlineData("", "Unknown")]
+    [InlineData(null, "Unknown")]
+    public void MapToHouseholdData_maps_card_status_through_MapCardStatus(string? ebtCardSts, string expected)
+    {
+        var student = CreateMinimalStudent();
+        student.EbtCardSts = ebtCardSts;
+        var response = new GetAccountDetailsResponse
+        {
+            StdntEnrollDtls = new List<GetAccountStudentDetail> { student }
+        };
+        var piiVisibility = new PiiVisibility(IncludeAddress: false, IncludeEmail: false, IncludePhone: false);
+
+        var result = CbmsResponseMapper.MapToHouseholdData(response, "8185551234", piiVisibility);
+
+        var caseRecord = Assert.Single(result.SummerEbtCases);
+        Assert.Equal(expected, caseRecord.EbtCardStatus);
     }
 
     [Fact]

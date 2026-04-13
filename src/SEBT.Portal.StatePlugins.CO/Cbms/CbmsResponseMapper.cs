@@ -78,7 +78,7 @@ internal static class CbmsResponseMapper
             MailingAddress = piiVisibility.IncludeAddress ? MapAddress(s) : null,
             EbtCaseNumber = s.CbmsCsId,
             EbtCardLastFour = s.EbtCardLastFour,
-            EbtCardStatus = s.EbtCardSts,
+            EbtCardStatus = MapCardStatus(s.EbtCardSts).ToString(),
             EbtCardIssueDate = ParseDateOnly(s.CardIssDt),
             EbtCardBalance = s.CardBal.HasValue ? (decimal)s.CardBal.Value : null,
             BenefitAvailableDate = ParseDateOnly(s.BenAvalDt),

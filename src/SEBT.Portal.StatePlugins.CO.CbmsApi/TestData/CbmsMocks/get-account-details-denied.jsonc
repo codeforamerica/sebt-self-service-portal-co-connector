@@ -2,16 +2,16 @@
     "stdntEnrollDtls": [
         {
             "gurdFstNm": "PERSON",
-            "gurdLstNm": "DENIED",
+            "gurdLstNm": "MOCKDENIED",
             "gurdPhnNm": "7192833113",
             "gurdEmailAddr": "sebt.co+denied@codeforamerica.org",
             "sebtYear": 2026,
             "sebtAppId": 1198789,
-            "stdFstNm": "CHILD",
-            "stdLstNm": "DENIED",
+            "stdFstNm": "Child",
+            "stdLstNm": "Denied",
             "stdDob": "2017-03-30",
             "stdntEligSts": "DE",
-            "sebtAppSts": "DENIED", // currently returning blank but will be updated - for now assuming "APPROVED", "PENDING", "DENIED" "UNDER REVIEW" "CANCELLED"
+            "sebtAppSts": "PI",
             "eligSrc": "PK",
             "sebtChldId": 1200545,
             "sebtChldCwin": 10615710,
