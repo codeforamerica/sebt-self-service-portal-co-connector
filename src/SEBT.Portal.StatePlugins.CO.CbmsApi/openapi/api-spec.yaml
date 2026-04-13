@@ -92,7 +92,9 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/UpdateStudentDetailsRequest"
+              type: array
+              items:
+                $ref: "#/components/schemas/UpdateStudentDetailsRequest"
       responses:
         "200":
           description: ""

@@ -242,7 +242,8 @@ public class CbmsResponseMapperTests
         var app = Assert.Single(result.Applications);
         var child = Assert.Single(app.Children);
         Assert.Equal("AppChild", child.FirstName);
-        Assert.Equal(ApplicationStatus.Pending, child.Status);
+        Assert.Equal(ApplicationStatus.Pending, app.ApplicationStatus);
+        Assert.Equal(IssuanceType.SummerEbt, app.IssuanceType);
     }
 
     [Fact]
@@ -269,7 +270,8 @@ public class CbmsResponseMapperTests
         var app = Assert.Single(result.Applications);
         var child = Assert.Single(app.Children);
         Assert.Equal("ApprovedChild", child.FirstName);
-        Assert.Equal(ApplicationStatus.Approved, child.Status);
+        Assert.Equal(ApplicationStatus.Approved, app.ApplicationStatus);
+        Assert.Equal(IssuanceType.SummerEbt, app.IssuanceType);
     }
 
     [Fact]
@@ -293,7 +295,7 @@ public class CbmsResponseMapperTests
     }
 
     [Fact]
-    public void MapToHouseholdData_case_has_eligibility_source_and_issuance_type()
+    public void MapToHouseholdData_DIRC_auto_eligible_sets_household_benefit_issuance_and_case()
     {
         var student = CreateMinimalStudent();
         student.EligSrc = "DIRC";
@@ -305,9 +307,8 @@ public class CbmsResponseMapperTests
 
         var result = CbmsResponseMapper.MapToHouseholdData(response, "8185551234", piiVisibility);
 
-        var caseRecord = Assert.Single(result.SummerEbtCases);
-        Assert.Equal("DIRC", caseRecord.EligibilitySource);
-        Assert.Equal(IssuanceType.SummerEbt, caseRecord.IssuanceType);
+        Assert.Equal(BenefitIssuanceType.SummerEbt, result.BenefitIssuanceType);
+        Assert.Single(result.SummerEbtCases);
     }
 
     [Theory]

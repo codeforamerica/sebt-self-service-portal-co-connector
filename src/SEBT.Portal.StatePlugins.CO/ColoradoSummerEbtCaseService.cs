@@ -52,7 +52,6 @@ public class ColoradoSummerEbtCaseService : ISummerEbtCaseService
         if (identifierType == HouseholdIdentifierType.Phone)
             return await GetHouseholdByPhoneAsync(identifierValue, piiVisibility, cancellationToken).ConfigureAwait(false);
 
-        _logger.LogWarning("No HouseholdIdentifierType found when calling GetHouseholdByIdentifierAsync");
         return null;
     }
 
@@ -63,7 +62,6 @@ public class ColoradoSummerEbtCaseService : ISummerEbtCaseService
         IdentityAssuranceLevel identityAssuranceLevel,
         CancellationToken cancellationToken = default)
     {
-        _logger.LogDebug("CBMS does not support lookup by guardian email; returning null.");
         return Task.FromResult<HouseholdData?>(null);
     }
 
@@ -75,14 +73,12 @@ public class ColoradoSummerEbtCaseService : ISummerEbtCaseService
         var options = CbmsOptionsHelper.GetCbmsOptions(_configuration);
         if (!options.IsConfigured)
         {
-            _logger.LogWarning("Cbms not configured; skipping phone lookup.");
             return null;
         }
 
         var normalizedPhone = PhoneNormalizer.Normalize(phoneNumber);
         if (string.IsNullOrEmpty(normalizedPhone))
         {
-            _logger.LogWarning("Invalid or empty phone number for CBMS lookup.");
             return null;
         }
 
@@ -99,7 +95,6 @@ public class ColoradoSummerEbtCaseService : ISummerEbtCaseService
         }
         catch (ErrorResponse ex) when (ex.ResponseStatusCode == 404)
         {
-            _logger.LogWarning(ex, "CBMS GetAccountDetails failed with status code: {StatusCode}", 404);
             return null;
         }
         catch (ErrorResponse ex)
