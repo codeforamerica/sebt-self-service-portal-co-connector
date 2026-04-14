@@ -105,6 +105,7 @@ public class CbmsResponseMapperTests
         Assert.Equal("case-123", @case.EbtCaseNumber);
         Assert.Equal("4321", @case.EbtCardLastFour);
         Assert.Equal("Active", @case.EbtCardStatus);
+        Assert.False(@case.IsStreamlineCertified);
     }
 
     [Theory]
@@ -218,6 +219,8 @@ public class CbmsResponseMapperTests
         Assert.Single(result.SummerEbtCases);
         Assert.Equal("AutoChild", result.SummerEbtCases[0].ChildFirstName);
         Assert.Empty(result.Applications);
+        Assert.True(result.SummerEbtCases[0].IsStreamlineCertified);
+        Assert.False(result.SummerEbtCases[0].IsCoLoaded);
     }
 
     [Fact]
@@ -288,6 +291,7 @@ public class CbmsResponseMapperTests
         Assert.Single(result.SummerEbtCases);
         Assert.Equal("UnknownChild", result.SummerEbtCases[0].ChildFirstName);
         Assert.Empty(result.Applications);
+        Assert.True(result.SummerEbtCases[0].IsStreamlineCertified);
     }
 
     [Fact]

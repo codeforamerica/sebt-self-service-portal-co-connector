@@ -83,6 +83,7 @@ internal static class CbmsResponseMapper
             EbtCardBalance = s.CardBal.HasValue ? (decimal)s.CardBal.Value : null,
             BenefitAvailableDate = ParseDateOnly(s.BenAvalDt),
             BenefitExpirationDate = ParseDateOnly(s.BenExpDt),
+            IsStreamlineCertified = !EligibilitySourceClassifier.IsApplicationBased(s.EligSrc),
         };
     }
 
