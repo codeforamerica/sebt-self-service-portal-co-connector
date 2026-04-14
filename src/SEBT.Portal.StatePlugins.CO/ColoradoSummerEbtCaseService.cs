@@ -91,7 +91,7 @@ public class ColoradoSummerEbtCaseService : ISummerEbtCaseService
             if (response?.StdntEnrollDtls == null || response.StdntEnrollDtls.Count == 0)
                 return null;
 
-            return CbmsResponseMapper.MapToHouseholdData(response, normalizedPhone, piiVisibility);
+            return CbmsResponseMapper.MapToHouseholdData(response, normalizedPhone, piiVisibility, _logger);
         }
         catch (ErrorResponse ex) when (ex.ResponseStatusCode == 404)
         {
