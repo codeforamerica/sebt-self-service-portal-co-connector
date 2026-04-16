@@ -29,6 +29,10 @@ public class ColoradoAddressUpdateService : IAddressUpdateService
     private readonly ILogger _logger;
     private readonly HttpMessageHandler? _testHttpMessageHandler;
 
+    private CbmsConnectionOptions? _cachedOptions;
+    private CbmsSebtApiClient? _cachedClient;
+    private readonly object _clientCacheLock = new();
+
     [ImportingConstructor]
     public ColoradoAddressUpdateService(
         [Import(AllowDefault = true)] IConfiguration? configuration = null,
@@ -78,30 +82,22 @@ public class ColoradoAddressUpdateService : IAddressUpdateService
                 "Colorado CBMS requires a valid US phone number in HouseholdIdentifierValue, same normalization as household lookup.");
         }
 
-        var clientId = _configuration?["Cbms:ClientId"] ?? Environment.GetEnvironmentVariable("Cbms__ClientId");
-        var clientSecret = _configuration?["Cbms:ClientSecret"] ?? Environment.GetEnvironmentVariable("Cbms__ClientSecret");
-        if (string.IsNullOrWhiteSpace(clientId) || string.IsNullOrWhiteSpace(clientSecret))
+        var options = CbmsOptionsHelper.GetCbmsOptions(_configuration);
+        if (!options.IsConfigured)
         {
             return AddressUpdateResult.BackendError(
                 "NOT_CONFIGURED",
                 "CBMS credentials are not configured. Set Cbms:ClientId and Cbms:ClientSecret (or Cbms__* env vars).");
         }
 
-        var apiBaseUrl = _configuration?["Cbms:ApiBaseUrl"]
-            ?? Environment.GetEnvironmentVariable("Cbms__ApiBaseUrl");
-        var tokenEndpointUrl = _configuration?["Cbms:TokenEndpointUrl"]
-            ?? Environment.GetEnvironmentVariable("Cbms__TokenEndpointUrl");
-
-        if (string.IsNullOrWhiteSpace(apiBaseUrl) || string.IsNullOrWhiteSpace(tokenEndpointUrl))
+        if (string.IsNullOrWhiteSpace(options.ApiBaseUrl) || string.IsNullOrWhiteSpace(options.TokenEndpointUrl))
         {
             return AddressUpdateResult.BackendError(
                 "NOT_CONFIGURED",
-                "CBMS endpoint URLs are not configured. Set Cbms:ApiBaseUrl and Cbms:TokenEndpointUrl (or Cbms__* env vars). Do not rely on implicit sandbox defaults in production.");
+                "CBMS endpoint URLs are not configured. Set Cbms:ApiBaseUrl and Cbms:TokenEndpointUrl (or Cbms__* env vars).");
         }
 
-        var client = _testHttpMessageHandler != null
-            ? CbmsSebtApiClientFactory.Create(clientId, clientSecret, apiBaseUrl, tokenEndpointUrl, _testHttpMessageHandler, _logger)
-            : CbmsSebtApiClientFactory.Create(clientId, clientSecret, apiBaseUrl, tokenEndpointUrl, logger: _logger);
+        var client = GetOrCreateClient(options);
 
         GetAccountDetailsResponse? accountResponse;
         try
@@ -186,6 +182,25 @@ public class ColoradoAddressUpdateService : IAddressUpdateService
         {
             _logger.LogWarning("CBMS AddressUpdate: update-std-dtls failed with HTTP {StatusCode}", ex.ResponseStatusCode);
             return BackendErrorFromApiException(ex);
+        }
+    }
+
+    private CbmsSebtApiClient GetOrCreateClient(CbmsConnectionOptions options)
+    {
+        lock (_clientCacheLock)
+        {
+            if (_cachedOptions == options && _cachedClient != null)
+                return _cachedClient;
+
+            _cachedClient = CbmsSebtApiClientFactory.Create(
+                options.ClientId,
+                options.ClientSecret,
+                options.ApiBaseUrl,
+                options.TokenEndpointUrl,
+                _testHttpMessageHandler,
+                _logger);
+            _cachedOptions = options;
+            return _cachedClient;
         }
     }
 
