@@ -57,7 +57,7 @@ public class ClientCredentialsTokenProvider : IAccessTokenProvider
     {
         if (_cachedToken is not null && DateTimeOffset.UtcNow < _tokenExpiry)
         {
-            _logger.LogDebug("CBMS token cache hit, expires in {SecondsRemaining:F0}s",
+            _logger.LogInformation("CBMS token cache hit, expires in {SecondsRemaining:F0}s",
                 (_tokenExpiry - DateTimeOffset.UtcNow).TotalSeconds);
             return _cachedToken;
         }
@@ -68,7 +68,7 @@ public class ClientCredentialsTokenProvider : IAccessTokenProvider
             // Double-check after acquiring the lock.
             if (_cachedToken is not null && DateTimeOffset.UtcNow < _tokenExpiry)
             {
-                _logger.LogDebug("CBMS token cache hit (after lock), expires in {SecondsRemaining:F0}s",
+                _logger.LogInformation("CBMS token cache hit (after lock), expires in {SecondsRemaining:F0}s",
                     (_tokenExpiry - DateTimeOffset.UtcNow).TotalSeconds);
                 return _cachedToken;
             }
