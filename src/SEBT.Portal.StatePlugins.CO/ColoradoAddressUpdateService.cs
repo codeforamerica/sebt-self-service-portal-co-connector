@@ -83,7 +83,7 @@ public class ColoradoAddressUpdateService : IAddressUpdateService
         }
 
         var options = CbmsOptionsHelper.GetCbmsOptions(_configuration);
-        if (!options.IsConfigured)
+        if (string.IsNullOrWhiteSpace(options.ClientId) || string.IsNullOrWhiteSpace(options.ClientSecret))
         {
             return AddressUpdateResult.BackendError(
                 "NOT_CONFIGURED",
