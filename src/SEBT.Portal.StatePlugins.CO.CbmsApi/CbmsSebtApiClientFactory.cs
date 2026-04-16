@@ -40,9 +40,26 @@ public static class CbmsSebtApiClientFactory
         HttpMessageHandler? httpMessageHandler = null,
         ILogger? logger = null)
     {
+        // When a logger is provided, wrap the transport handler so every HTTP call
+        // (including token requests) gets raw timing logged at the transport layer.
+        HttpClient BuildTimedClient(HttpMessageHandler innerHandler, Uri? baseAddress = null)
+        {
+            if (logger != null)
+            {
+                var timed = new CbmsHttpTimingHandler(innerHandler, logger);
+                var client = new HttpClient(timed, disposeHandler: false);
+                if (baseAddress != null) client.BaseAddress = baseAddress;
+                return client;
+            }
+
+            var plain = new HttpClient(innerHandler, disposeHandler: false);
+            if (baseAddress != null) plain.BaseAddress = baseAddress;
+            return plain;
+        }
+
         var tokenClient = httpMessageHandler != null
-            ? new HttpClient(httpMessageHandler, disposeHandler: false)
-            : TokenHttpClient.Value;
+            ? BuildTimedClient(httpMessageHandler)
+            : (logger != null ? BuildTimedClient(SharedHandler.Value) : TokenHttpClient.Value);
 
         var tokenProvider = new ClientCredentialsTokenProvider(
             tokenClient, clientId, clientSecret, tokenEndpointUrl, logger);
@@ -51,9 +68,9 @@ public static class CbmsSebtApiClientFactory
 
         var baseAddress = new Uri(apiBaseUrl);
         var apiHttpClient = httpMessageHandler != null
-            ? new HttpClient(httpMessageHandler, disposeHandler: false) { BaseAddress = baseAddress }
+            ? BuildTimedClient(httpMessageHandler, baseAddress)
             : HttpClients.GetOrAdd(baseAddress, uri =>
-                new HttpClient(SharedHandler.Value, disposeHandler: false) { BaseAddress = uri });
+                BuildTimedClient(SharedHandler.Value, uri));
         var adapter = new HttpClientRequestAdapter(authProvider, httpClient: apiHttpClient);
 
         return new CbmsSebtApiClient(adapter);
