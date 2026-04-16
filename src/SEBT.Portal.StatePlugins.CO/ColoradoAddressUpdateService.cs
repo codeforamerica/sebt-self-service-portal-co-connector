@@ -1,5 +1,8 @@
 using System.Composition;
+using System.Diagnostics;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Kiota.Abstractions;
 using SEBT.Portal.StatePlugins.CO.Cbms;
 using SEBT.Portal.StatePlugins.CO.CbmsApi;
@@ -23,19 +26,24 @@ namespace SEBT.Portal.StatePlugins.CO;
 public class ColoradoAddressUpdateService : IAddressUpdateService
 {
     private readonly IConfiguration? _configuration;
+    private readonly ILogger _logger;
     private readonly HttpMessageHandler? _testHttpMessageHandler;
 
     [ImportingConstructor]
-    public ColoradoAddressUpdateService([Import(AllowDefault = true)] IConfiguration? configuration = null)
+    public ColoradoAddressUpdateService(
+        [Import(AllowDefault = true)] IConfiguration? configuration = null,
+        [Import(AllowDefault = true)] ILoggerFactory? loggerFactory = null)
     {
         _configuration = configuration;
+        _logger = loggerFactory?.CreateLogger<ColoradoAddressUpdateService>() ?? NullLogger<ColoradoAddressUpdateService>.Instance;
         _testHttpMessageHandler = null;
     }
 
-    internal ColoradoAddressUpdateService(IConfiguration? configuration, HttpMessageHandler? testHttpMessageHandler)
+    internal ColoradoAddressUpdateService(IConfiguration? configuration, HttpMessageHandler? testHttpMessageHandler, ILogger? logger = null)
     {
         _configuration = configuration;
         _testHttpMessageHandler = testHttpMessageHandler;
+        _logger = logger ?? NullLogger<ColoradoAddressUpdateService>.Instance;
     }
 
     /// <inheritdoc />
@@ -92,22 +100,30 @@ public class ColoradoAddressUpdateService : IAddressUpdateService
         }
 
         var client = _testHttpMessageHandler != null
-            ? CbmsSebtApiClientFactory.Create(clientId, clientSecret, apiBaseUrl, tokenEndpointUrl, _testHttpMessageHandler)
-            : CbmsSebtApiClientFactory.Create(clientId, clientSecret, apiBaseUrl, tokenEndpointUrl);
+            ? CbmsSebtApiClientFactory.Create(clientId, clientSecret, apiBaseUrl, tokenEndpointUrl, _testHttpMessageHandler, _logger)
+            : CbmsSebtApiClientFactory.Create(clientId, clientSecret, apiBaseUrl, tokenEndpointUrl, logger: _logger);
 
         GetAccountDetailsResponse? accountResponse;
         try
         {
+            _logger.LogInformation("CBMS AddressUpdate: fetching account details (POST /sebt/get-account-details)");
+            var sw = Stopwatch.StartNew();
             accountResponse = await client.Sebt.GetAccountDetails.PostAsync(
                 new GetAccountDetailsRequest { PhnNm = phone10 },
                 cancellationToken: cancellationToken);
+            sw.Stop();
+            _logger.LogInformation(
+                "CBMS AddressUpdate: get-account-details completed in {ElapsedMs}ms, {RowCount} enrollment row(s)",
+                sw.ElapsedMilliseconds, accountResponse?.StdntEnrollDtls?.Count ?? 0);
         }
         catch (ErrorResponse ex)
         {
+            _logger.LogWarning("CBMS AddressUpdate: get-account-details failed with StatusCode={StatusCode}", ex.ResponseStatusCode);
             return MapErrorResponse(ex);
         }
         catch (ApiException ex)
         {
+            _logger.LogWarning("CBMS AddressUpdate: get-account-details failed with HTTP {StatusCode}", ex.ResponseStatusCode);
             return BackendErrorFromApiException(ex);
         }
 
@@ -143,7 +159,16 @@ public class ColoradoAddressUpdateService : IAddressUpdateService
 
         try
         {
+            _logger.LogInformation(
+                "CBMS AddressUpdate: updating {StudentCount} student(s) (PATCH /sebt/update-std-dtls)",
+                updateBodies.Count);
+            var patchSw = Stopwatch.StartNew();
             var updateResponse = await client.Sebt.UpdateStdDtls.PatchAsync(updateBodies, cancellationToken: cancellationToken);
+            patchSw.Stop();
+            _logger.LogInformation(
+                "CBMS AddressUpdate: update-std-dtls completed in {ElapsedMs}ms, respCd={RespCd}",
+                patchSw.ElapsedMilliseconds, updateResponse?.RespCd ?? "(null)");
+
             if (updateResponse != null && IsCbmsUpdateSuccessCode(updateResponse.RespCd))
             {
                 return AddressUpdateResult.Success();
@@ -154,10 +179,12 @@ public class ColoradoAddressUpdateService : IAddressUpdateService
         }
         catch (ErrorResponse ex)
         {
+            _logger.LogWarning("CBMS AddressUpdate: update-std-dtls failed with StatusCode={StatusCode}", ex.ResponseStatusCode);
             return MapErrorResponse(ex);
         }
         catch (ApiException ex)
         {
+            _logger.LogWarning("CBMS AddressUpdate: update-std-dtls failed with HTTP {StatusCode}", ex.ResponseStatusCode);
             return BackendErrorFromApiException(ex);
         }
     }

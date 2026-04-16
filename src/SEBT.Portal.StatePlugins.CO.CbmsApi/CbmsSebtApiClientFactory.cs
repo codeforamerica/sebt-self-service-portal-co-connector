@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using Microsoft.Extensions.Logging;
 using Microsoft.Kiota.Abstractions.Authentication;
 using Microsoft.Kiota.Http.HttpClientLibrary;
 
@@ -30,19 +31,21 @@ public static class CbmsSebtApiClientFactory
     /// <param name="apiBaseUrl">Base URL for the CBMS API.</param>
     /// <param name="tokenEndpointUrl">OAuth 2.0 token endpoint URL.</param>
     /// <param name="httpMessageHandler">Optional handler for tests or custom HTTP behavior. When provided, used for both token and API requests.</param>
+    /// <param name="logger">Optional logger for token acquisition diagnostics.</param>
     public static CbmsSebtApiClient Create(
         string clientId,
         string clientSecret,
         string apiBaseUrl,
         string tokenEndpointUrl,
-        HttpMessageHandler? httpMessageHandler = null)
+        HttpMessageHandler? httpMessageHandler = null,
+        ILogger? logger = null)
     {
         var tokenClient = httpMessageHandler != null
             ? new HttpClient(httpMessageHandler, disposeHandler: false)
             : TokenHttpClient.Value;
 
         var tokenProvider = new ClientCredentialsTokenProvider(
-            tokenClient, clientId, clientSecret, tokenEndpointUrl);
+            tokenClient, clientId, clientSecret, tokenEndpointUrl, logger);
 
         var authProvider = new BaseBearerTokenAuthenticationProvider(tokenProvider);
 

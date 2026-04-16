@@ -1,5 +1,8 @@
 using System.Composition;
+using System.Diagnostics;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Kiota.Abstractions.Authentication;
 using Microsoft.Kiota.Http.HttpClientLibrary;
 using SEBT.Portal.StatePlugins.CO.CbmsApi;
@@ -23,16 +26,21 @@ public class ColoradoEnrollmentCheckService : IEnrollmentCheckService
     private const string ApiKeyConfigKey = "COConnector:CbmsApiKey";
 
     private readonly IConfiguration? _configuration;
+    private readonly ILogger _logger;
 
     /// <summary>
     /// Initializes the service. The host should supply <paramref name="configuration"/> so the
     /// CBMS API base URL and API key are read from configuration (or set via env vars).
     /// </summary>
     /// <param name="configuration">Optional. The application configuration; when null, only env vars are checked.</param>
+    /// <param name="loggerFactory">Optional. Logger factory for diagnostics.</param>
     [ImportingConstructor]
-    public ColoradoEnrollmentCheckService([Import(AllowDefault = true)] IConfiguration? configuration = null)
+    public ColoradoEnrollmentCheckService(
+        [Import(AllowDefault = true)] IConfiguration? configuration = null,
+        [Import(AllowDefault = true)] ILoggerFactory? loggerFactory = null)
     {
         _configuration = configuration;
+        _logger = loggerFactory?.CreateLogger<ColoradoEnrollmentCheckService>() ?? NullLogger<ColoradoEnrollmentCheckService>.Instance;
     }
 
     private string GetBaseUrl()
@@ -91,7 +99,15 @@ public class ColoradoEnrollmentCheckService : IEnrollmentCheckService
             StdSchlCd = child.SchoolCode
         }).ToList();
 
+        _logger.LogInformation(
+            "CBMS EnrollmentCheck: starting request for {ChildCount} child(ren) (POST /sebt/check-enrollment)",
+            cbmsRequests.Count);
+        var sw = Stopwatch.StartNew();
         var cbmsResponse = await client.Sebt.CheckEnrollment.PostAsync(cbmsRequests, cancellationToken: cancellationToken);
+        sw.Stop();
+        _logger.LogInformation(
+            "CBMS EnrollmentCheck: completed in {ElapsedMs}ms, returned {DetailCount} student detail(s)",
+            sw.ElapsedMilliseconds, cbmsResponse?.StdntDtls?.Count ?? 0);
 
         var results = CorrelateResults(request.Children, cbmsResponse);
 
