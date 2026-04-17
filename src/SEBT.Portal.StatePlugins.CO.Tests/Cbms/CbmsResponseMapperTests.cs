@@ -109,15 +109,23 @@ public class CbmsResponseMapperTests
     }
 
     [Theory]
-    [InlineData("PENDING", ApplicationStatus.Pending)]
-    [InlineData("APPROVED", ApplicationStatus.Approved)]
-    [InlineData("DENIED", ApplicationStatus.Denied)]
-    [InlineData("CANCELLED", ApplicationStatus.Cancelled)]
-    [InlineData("UNDER REVIEW", ApplicationStatus.UnderReview)]
-    [InlineData("unknown", ApplicationStatus.Unknown)]
-    public void MapToHouseholdData_maps_application_status(string sebtAppSts, ApplicationStatus expected)
+    [InlineData("AI", ApplicationStatus.Pending)]
+    [InlineData("PD", ApplicationStatus.Pending)]
+    [InlineData("PG", ApplicationStatus.Pending)]
+    [InlineData("PI", ApplicationStatus.Pending)]
+    [InlineData("PN", ApplicationStatus.Pending)]
+    [InlineData("PS", ApplicationStatus.Pending)]
+    [InlineData("PW", ApplicationStatus.Pending)]
+    [InlineData("RC", ApplicationStatus.Pending)]
+    [InlineData("AM", ApplicationStatus.Unknown)]
+    [InlineData("DU", ApplicationStatus.Unknown)]
+    [InlineData("XYZZY", ApplicationStatus.Unknown)]
+    [InlineData("", ApplicationStatus.Unknown)]
+    [InlineData(null, ApplicationStatus.Unknown)]
+    public void MapToHouseholdData_maps_application_status(string? sebtAppSts, ApplicationStatus expected)
     {
         var student = CreateMinimalStudent();
+        student.EligSrc = "CBMS";
         student.SebtAppSts = sebtAppSts;
         var response = new GetAccountDetailsResponse
         {
@@ -127,8 +135,8 @@ public class CbmsResponseMapperTests
 
         var result = CbmsResponseMapper.MapToHouseholdData(response, "8185551234", piiVisibility);
 
-        var @case = Assert.Single(result.SummerEbtCases);
-        Assert.Equal(expected, @case.ApplicationStatus);
+        var app = Assert.Single(result.Applications);
+        Assert.Equal(expected, app.ApplicationStatus);
     }
 
     [Theory]

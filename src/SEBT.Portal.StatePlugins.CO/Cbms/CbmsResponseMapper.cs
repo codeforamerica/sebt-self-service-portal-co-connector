@@ -10,7 +10,8 @@ namespace SEBT.Portal.StatePlugins.CO.Cbms;
 /// Maps CBMS Get Account Details response to the portal's HouseholdData model.
 /// </summary>
 /// <remarks>
-/// <c>sebtAppSts</c> and <c>ebtCardSts</c> are interpreted as the full-word values shown in the CBMS OpenAPI examples (case-insensitive).
+/// <c>stdntEligSts</c> and <c>sebtAppSts</c> use 2-letter CBMS status codes (case-insensitive).
+/// <c>ebtCardSts</c> uses full-word values from the CBMS OpenAPI examples (case-insensitive).
 /// </remarks>
 internal static class CbmsResponseMapper
 {
@@ -153,16 +154,23 @@ internal static class CbmsResponseMapper
         };
     }
 
+    /// <summary>
+    /// Maps the CBMS application processing status code (<c>sebtAppSts</c>) to a portal ApplicationStatus.
+    /// These 2-letter codes represent application processing state — all known codes are in-process.
+    /// </summary>
     private static ApplicationStatus MapApplicationStatus(string? sebtAppSts)
     {
         if (string.IsNullOrEmpty(sebtAppSts)) return ApplicationStatus.Unknown;
         return sebtAppSts.ToUpperInvariant() switch
         {
-            "PENDING" => ApplicationStatus.Pending,
-            "APPROVED" => ApplicationStatus.Approved,
-            "DENIED" => ApplicationStatus.Denied,
-            "UNDER REVIEW" => ApplicationStatus.UnderReview,
-            "CANCELLED" => ApplicationStatus.Cancelled,
+            "AI" => ApplicationStatus.Pending,
+            "PD" => ApplicationStatus.Pending,
+            "PG" => ApplicationStatus.Pending,
+            "PI" => ApplicationStatus.Pending,
+            "PN" => ApplicationStatus.Pending,
+            "PS" => ApplicationStatus.Pending,
+            "PW" => ApplicationStatus.Pending,
+            "RC" => ApplicationStatus.Pending,
             _ => ApplicationStatus.Unknown
         };
     }
