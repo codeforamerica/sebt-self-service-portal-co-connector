@@ -21,6 +21,7 @@ public class CheckEnrollmentSerializationTests
                   "stdDob": "2015-05-15",
                   "mtchCnfd": 95,
                   "stdntEligSts": "ELIGIBLE",
+                  "sebtEligSts": "Y",
                   "sebtYear": "2024",
                   "sebtAppId": "APP12345",
                   "sebtChldId": "CHLD9876",
@@ -50,9 +51,11 @@ public class CheckEnrollmentSerializationTests
         Assert.Equal("CHLD9876", student.SebtChldId);
         Assert.Equal("REQ-001", student.StdReqInd);
 
-        // Unmapped fields land in AdditionalData — fail if the spec adds new attributes
+        // sebtEligSts has no typed property yet — verify it lands in AdditionalData
+        Assert.True(student.AdditionalData.ContainsKey("sebtEligSts"));
+        Assert.Equal("Y", student.AdditionalData["sebtEligSts"]?.ToString());
+
         Assert.Empty(result.AdditionalData);
-        Assert.Empty(student.AdditionalData);
     }
 
     [Fact]

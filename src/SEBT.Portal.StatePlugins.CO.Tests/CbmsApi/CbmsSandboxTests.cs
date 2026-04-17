@@ -55,6 +55,16 @@ public class CbmsSandboxTests(CbmsSandboxFixture fixture)
         {
             var response = await fixture.Client!.Sebt.CheckEnrollment.PostAsync(request);
             Assert.NotNull(response);
+
+            // Verify sebtEligSts is returned (DC-287)
+            var student = response.StdntDtls?.FirstOrDefault();
+            if (student != null)
+            {
+                Assert.True(
+                    student.AdditionalData.ContainsKey("sebtEligSts"),
+                    "Expected sebtEligSts in check-enrollment response. " +
+                    "CBMS may not be returning this field yet.");
+            }
         }
         catch (ErrorResponse ex)
         {

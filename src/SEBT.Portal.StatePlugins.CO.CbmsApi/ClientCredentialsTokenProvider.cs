@@ -1,5 +1,8 @@
+using System.Diagnostics;
 using System.Text;
 using System.Text.Json;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Kiota.Abstractions.Authentication;
 
 namespace SEBT.Portal.StatePlugins.CO.CbmsApi;
@@ -15,6 +18,7 @@ public class ClientCredentialsTokenProvider : IAccessTokenProvider
     private readonly string _clientId;
     private readonly string _clientSecret;
     private readonly string _tokenEndpointUrl;
+    private readonly ILogger _logger;
 
     private readonly SemaphoreSlim _semaphore = new(1, 1);
     private string? _cachedToken;
@@ -29,7 +33,8 @@ public class ClientCredentialsTokenProvider : IAccessTokenProvider
         HttpClient httpClient,
         string clientId,
         string clientSecret,
-        string tokenEndpointUrl)
+        string tokenEndpointUrl,
+        ILogger? logger = null)
     {
         ArgumentNullException.ThrowIfNull(httpClient);
         ArgumentException.ThrowIfNullOrWhiteSpace(clientId);
@@ -40,6 +45,7 @@ public class ClientCredentialsTokenProvider : IAccessTokenProvider
         _clientId = clientId;
         _clientSecret = clientSecret;
         _tokenEndpointUrl = tokenEndpointUrl;
+        _logger = logger ?? NullLogger.Instance;
     }
 
     public AllowedHostsValidator AllowedHostsValidator { get; } = new();
@@ -51,6 +57,8 @@ public class ClientCredentialsTokenProvider : IAccessTokenProvider
     {
         if (_cachedToken is not null && DateTimeOffset.UtcNow < _tokenExpiry)
         {
+            _logger.LogInformation("CBMS token cache hit, expires in {SecondsRemaining:F0}s",
+                (_tokenExpiry - DateTimeOffset.UtcNow).TotalSeconds);
             return _cachedToken;
         }
 
@@ -60,13 +68,28 @@ public class ClientCredentialsTokenProvider : IAccessTokenProvider
             // Double-check after acquiring the lock.
             if (_cachedToken is not null && DateTimeOffset.UtcNow < _tokenExpiry)
             {
+                _logger.LogInformation("CBMS token cache hit (after lock), expires in {SecondsRemaining:F0}s",
+                    (_tokenExpiry - DateTimeOffset.UtcNow).TotalSeconds);
                 return _cachedToken;
             }
 
+            var isRefresh = _cachedToken is not null;
+            _logger.LogInformation("CBMS token {Action}: requesting new token from {TokenEndpoint}",
+                isRefresh ? "refresh" : "acquisition", _tokenEndpointUrl);
+
+            var sw = Stopwatch.StartNew();
             var (token, expiresIn) = await RequestTokenAsync(cancellationToken);
+            sw.Stop();
 
             _cachedToken = token;
             _tokenExpiry = DateTimeOffset.UtcNow.AddSeconds(expiresIn) - RefreshBuffer;
+
+            _logger.LogInformation(
+                "CBMS token {Action} succeeded in {ElapsedMs}ms, expires_in={ExpiresInSec}s (effective TTL={EffectiveTtlSec}s)",
+                isRefresh ? "refresh" : "acquisition",
+                sw.ElapsedMilliseconds,
+                expiresIn,
+                (int)(_tokenExpiry - DateTimeOffset.UtcNow).TotalSeconds);
 
             return _cachedToken;
         }

@@ -24,8 +24,8 @@ public class GetAccountDetailsSerializationTests
                   "stdLstNm": "Smith",
                   "stdDob": "2016-10-20",
                   "mtchCnfd": 100,
-                  "stdntEligSts": "ENROLLED",
-                  "sebtAppSts": "APPROVED",
+                  "stdntEligSts": "AP",
+                  "sebtAppSts": "PW",
                   "eligSrc": "DIRECT_CERT",
                   "sebtChldId": 990011,
                   "sebtChldCwin": 123456789,
@@ -70,12 +70,12 @@ public class GetAccountDetailsSerializationTests
         Assert.Equal("Smith", student.StdLstNm);
         Assert.Equal("2016-10-20", student.StdDob);
         Assert.Equal(100d, student.MtchCnfd);
-        Assert.Equal("ENROLLED", student.StdntEligSts);
+        Assert.Equal("AP", student.StdntEligSts);
 
         // Enrollment details
         Assert.Equal(2024, student.SebtYear);
         Assert.Equal(556677, student.SebtAppId);
-        Assert.Equal("APPROVED", student.SebtAppSts);
+        Assert.Equal("PW", student.SebtAppSts);
         Assert.Equal("DIRECT_CERT", student.EligSrc);
         Assert.Equal(990011, student.SebtChldId);
         Assert.Equal(123456789, student.SebtChldCwin);
