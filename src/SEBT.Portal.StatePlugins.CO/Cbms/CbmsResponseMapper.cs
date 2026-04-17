@@ -92,7 +92,7 @@ internal static class CbmsResponseMapper
     /// Builds the Cases collection. A child is a case if:
     /// - Auto-eligible (EligSrc = DIRC or CDE) — always a case
     /// - Unknown EligSrc (null/empty/unrecognized) — treated as auto-eligible
-    /// - Application-based (EligSrc = CBMS or PK) AND approved
+    /// - Application-based (EligSrc = CBMS or PK) AND case status is approved (stdntEligSts = AP)
     /// </summary>
     private static List<SummerEbtCase> BuildCases(
         List<GetAccountStudentDetail> students,
@@ -100,7 +100,7 @@ internal static class CbmsResponseMapper
     {
         return students
             .Where(s => !EligibilitySourceClassifier.IsApplicationBased(s.EligSrc)
-                      || MapApplicationStatus(s.SebtAppSts) == ApplicationStatus.Approved)
+                      || MapCaseStatus(s.StdntEligSts) == ApplicationStatus.Approved)
             .Select(s => MapToSummerEbtCase(s, piiVisibility))
             .ToList();
     }

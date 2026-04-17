@@ -268,7 +268,8 @@ public class CbmsResponseMapperTests
     {
         var student = CreateMinimalStudent();
         student.EligSrc = "CBMS";
-        student.SebtAppSts = "PENDING";
+        student.SebtAppSts = "RC";
+        student.StdntEligSts = "PE";
         student.StdFstNm = "AppChild";
         var response = new GetAccountDetailsResponse
         {
@@ -291,7 +292,8 @@ public class CbmsResponseMapperTests
     {
         var student = CreateMinimalStudent();
         student.EligSrc = "CBMS";
-        student.SebtAppSts = "APPROVED";
+        student.SebtAppSts = "PW";
+        student.StdntEligSts = "AP";
         student.StdFstNm = "ApprovedChild";
         student.EbtCardLastFour = "9999";
         student.EbtCardSts = "ACTIVE";
@@ -310,7 +312,7 @@ public class CbmsResponseMapperTests
         var app = Assert.Single(result.Applications);
         var child = Assert.Single(app.Children);
         Assert.Equal("ApprovedChild", child.FirstName);
-        Assert.Equal(ApplicationStatus.Approved, app.ApplicationStatus);
+        Assert.Equal(ApplicationStatus.Pending, app.ApplicationStatus);
         Assert.Equal(IssuanceType.SummerEbt, app.IssuanceType);
     }
 
