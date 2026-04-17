@@ -398,6 +398,48 @@ public class CbmsResponseMapperTests
         Assert.Equal("7009001", caseRecord.SummerEBTCaseID);
     }
 
+    [Fact]
+    public void MapToHouseholdData_populates_child_status_from_stdntEligSts()
+    {
+        var approved = CreateMinimalStudent();
+        approved.EligSrc = "CBMS";
+        approved.SebtAppId = 1001;
+        approved.StdntEligSts = "AP";
+        approved.StdFstNm = "ApprovedChild";
+
+        var denied = CreateMinimalStudent();
+        denied.EligSrc = "CBMS";
+        denied.SebtAppId = 1001;
+        denied.StdntEligSts = "DE";
+        denied.StdFstNm = "DeniedChild";
+
+        var pending = CreateMinimalStudent();
+        pending.EligSrc = "CBMS";
+        pending.SebtAppId = 1001;
+        pending.StdntEligSts = "PE";
+        pending.StdFstNm = "PendingChild";
+
+        var response = new GetAccountDetailsResponse
+        {
+            StdntEnrollDtls = new List<GetAccountStudentDetail> { approved, denied, pending }
+        };
+        var piiVisibility = new PiiVisibility(IncludeAddress: false, IncludeEmail: false, IncludePhone: false);
+
+        var result = CbmsResponseMapper.MapToHouseholdData(response, "8185551234", piiVisibility);
+
+        var app = Assert.Single(result.Applications);
+        Assert.Equal(3, app.Children.Count);
+
+        var approvedChild = app.Children.First(c => c.FirstName == "ApprovedChild");
+        Assert.Equal(ApplicationStatus.Approved, approvedChild.Status);
+
+        var deniedChild = app.Children.First(c => c.FirstName == "DeniedChild");
+        Assert.Equal(ApplicationStatus.Denied, deniedChild.Status);
+
+        var pendingChild = app.Children.First(c => c.FirstName == "PendingChild");
+        Assert.Equal(ApplicationStatus.Pending, pendingChild.Status);
+    }
+
     private static GetAccountStudentDetail CreateMinimalStudent()
     {
         return new GetAccountStudentDetail

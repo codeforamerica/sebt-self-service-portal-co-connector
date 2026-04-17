@@ -127,7 +127,8 @@ internal static class CbmsResponseMapper
                 Children = g.Select(c => new Child
                 {
                     FirstName = c.StdFstNm ?? string.Empty,
-                    LastName = c.StdLstNm ?? string.Empty
+                    LastName = c.StdLstNm ?? string.Empty,
+                    Status = MapCaseStatus(c.StdntEligSts)
                 }).ToList()
             };
         }).ToList();
