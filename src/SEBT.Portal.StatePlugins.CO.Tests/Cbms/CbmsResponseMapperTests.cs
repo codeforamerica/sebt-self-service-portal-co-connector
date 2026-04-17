@@ -131,6 +131,38 @@ public class CbmsResponseMapperTests
         Assert.Equal(expected, @case.ApplicationStatus);
     }
 
+    [Theory]
+    [InlineData("AP", ApplicationStatus.Approved)]
+    [InlineData("DE", ApplicationStatus.Denied)]
+    [InlineData("OT", ApplicationStatus.Denied)]
+    [InlineData("AI", ApplicationStatus.Pending)]
+    [InlineData("PD", ApplicationStatus.Pending)]
+    [InlineData("PE", ApplicationStatus.Pending)]
+    [InlineData("PG", ApplicationStatus.Pending)]
+    [InlineData("PS", ApplicationStatus.Pending)]
+    [InlineData("AM", ApplicationStatus.Unknown)]
+    [InlineData("DD", ApplicationStatus.Unknown)]
+    [InlineData("XYZZY", ApplicationStatus.Unknown)]
+    [InlineData("", ApplicationStatus.Unknown)]
+    [InlineData(null, ApplicationStatus.Unknown)]
+    public void MapToHouseholdData_maps_case_status_from_stdntEligSts(string? stdntEligSts, ApplicationStatus expected)
+    {
+        var student = CreateMinimalStudent();
+        student.StdntEligSts = stdntEligSts;
+        // Use DIRC so the student always appears in cases regardless of application status
+        student.EligSrc = "DIRC";
+        var response = new GetAccountDetailsResponse
+        {
+            StdntEnrollDtls = new List<GetAccountStudentDetail> { student }
+        };
+        var piiVisibility = new PiiVisibility(IncludeAddress: false, IncludeEmail: false, IncludePhone: false);
+
+        var result = CbmsResponseMapper.MapToHouseholdData(response, "8185551234", piiVisibility);
+
+        var @case = Assert.Single(result.SummerEbtCases);
+        Assert.Equal(expected, @case.ApplicationStatus);
+    }
+
     [Fact]
     public void MapToHouseholdData_MapAddress_returns_null_when_AddrLn1_and_Cty_both_empty()
     {

@@ -74,7 +74,7 @@ internal static class CbmsResponseMapper
             ChildDateOfBirth = ParseDateOnly(s.StdDob) ?? DateOnly.MinValue,
             HouseholdType = "SEBT",
             EligibilityType = s.StdntEligSts ?? string.Empty,
-            ApplicationStatus = MapApplicationStatus(s.SebtAppSts),
+            ApplicationStatus = MapCaseStatus(s.StdntEligSts),
             MailingAddress = piiVisibility.IncludeAddress ? MapAddress(s) : null,
             EbtCaseNumber = s.CbmsCsId,
             EbtCardLastFour = s.EbtCardLastFour,
@@ -130,6 +130,27 @@ internal static class CbmsResponseMapper
                 }).ToList()
             };
         }).ToList();
+    }
+
+    /// <summary>
+    /// Maps the CBMS case/eligibility status code (<c>stdntEligSts</c>) to a portal ApplicationStatus.
+    /// These 2-letter codes represent the case-level determination (approved, denied, pending).
+    /// </summary>
+    private static ApplicationStatus MapCaseStatus(string? stdntEligSts)
+    {
+        if (string.IsNullOrEmpty(stdntEligSts)) return ApplicationStatus.Unknown;
+        return stdntEligSts.ToUpperInvariant() switch
+        {
+            "AP" => ApplicationStatus.Approved,
+            "DE" => ApplicationStatus.Denied,
+            "OT" => ApplicationStatus.Denied,
+            "AI" => ApplicationStatus.Pending,
+            "PD" => ApplicationStatus.Pending,
+            "PE" => ApplicationStatus.Pending,
+            "PG" => ApplicationStatus.Pending,
+            "PS" => ApplicationStatus.Pending,
+            _ => ApplicationStatus.Unknown
+        };
     }
 
     private static ApplicationStatus MapApplicationStatus(string? sebtAppSts)
