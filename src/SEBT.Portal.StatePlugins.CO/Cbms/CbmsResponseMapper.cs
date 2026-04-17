@@ -10,7 +10,8 @@ namespace SEBT.Portal.StatePlugins.CO.Cbms;
 /// Maps CBMS Get Account Details response to the portal's HouseholdData model.
 /// </summary>
 /// <remarks>
-/// <c>sebtAppSts</c> and <c>ebtCardSts</c> are interpreted as the full-word values shown in the CBMS OpenAPI examples (case-insensitive).
+/// <c>stdntEligSts</c> and <c>sebtAppSts</c> use 2-letter CBMS status codes (case-insensitive).
+/// <c>ebtCardSts</c> uses full-word values from the CBMS OpenAPI examples (case-insensitive).
 /// </remarks>
 internal static class CbmsResponseMapper
 {
@@ -74,7 +75,7 @@ internal static class CbmsResponseMapper
             ChildDateOfBirth = ParseDateOnly(s.StdDob) ?? DateOnly.MinValue,
             HouseholdType = "SEBT",
             EligibilityType = s.StdntEligSts ?? string.Empty,
-            ApplicationStatus = MapApplicationStatus(s.SebtAppSts),
+            ApplicationStatus = MapCaseStatus(s.StdntEligSts),
             MailingAddress = piiVisibility.IncludeAddress ? MapAddress(s) : null,
             EbtCaseNumber = s.CbmsCsId,
             EbtCardLastFour = s.EbtCardLastFour,
@@ -83,8 +84,7 @@ internal static class CbmsResponseMapper
             EbtCardBalance = s.CardBal.HasValue ? (decimal)s.CardBal.Value : null,
             BenefitAvailableDate = ParseDateOnly(s.BenAvalDt),
             BenefitExpirationDate = ParseDateOnly(s.BenExpDt),
-            EligibilitySource = s.EligSrc,
-            IssuanceType = IssuanceType.SummerEbt,  // CO does not co-load cards
+            IsStreamlineCertified = !EligibilitySourceClassifier.IsApplicationBased(s.EligSrc),
         };
     }
 
@@ -92,7 +92,7 @@ internal static class CbmsResponseMapper
     /// Builds the Cases collection. A child is a case if:
     /// - Auto-eligible (EligSrc = DIRC or CDE) — always a case
     /// - Unknown EligSrc (null/empty/unrecognized) — treated as auto-eligible
-    /// - Application-based (EligSrc = CBMS or PK) AND approved
+    /// - Application-based (EligSrc = CBMS or PK) AND case status is approved (stdntEligSts = AP)
     /// </summary>
     private static List<SummerEbtCase> BuildCases(
         List<GetAccountStudentDetail> students,
@@ -100,7 +100,7 @@ internal static class CbmsResponseMapper
     {
         return students
             .Where(s => !EligibilitySourceClassifier.IsApplicationBased(s.EligSrc)
-                      || MapApplicationStatus(s.SebtAppSts) == ApplicationStatus.Approved)
+                      || MapCaseStatus(s.StdntEligSts) == ApplicationStatus.Approved)
             .Select(s => MapToSummerEbtCase(s, piiVisibility))
             .ToList();
     }
@@ -123,26 +123,55 @@ internal static class CbmsResponseMapper
             {
                 ApplicationNumber = first.SebtAppId.ToString(),
                 ApplicationStatus = MapApplicationStatus(first.SebtAppSts),
+                IssuanceType = IssuanceType.SummerEbt,
                 Children = g.Select(c => new Child
                 {
                     FirstName = c.StdFstNm ?? string.Empty,
                     LastName = c.StdLstNm ?? string.Empty,
-                    Status = MapApplicationStatus(c.SebtAppSts)
+                    Status = MapCaseStatus(c.StdntEligSts)
                 }).ToList()
             };
         }).ToList();
     }
 
+    /// <summary>
+    /// Maps the CBMS case/eligibility status code (<c>stdntEligSts</c>) to a portal ApplicationStatus.
+    /// These 2-letter codes represent the case-level determination (approved, denied, pending).
+    /// </summary>
+    private static ApplicationStatus MapCaseStatus(string? stdntEligSts)
+    {
+        if (string.IsNullOrEmpty(stdntEligSts)) return ApplicationStatus.Unknown;
+        return stdntEligSts.ToUpperInvariant() switch
+        {
+            "AP" => ApplicationStatus.Approved,
+            "DE" => ApplicationStatus.Denied,
+            "OT" => ApplicationStatus.Denied,
+            "AI" => ApplicationStatus.Pending,
+            "PD" => ApplicationStatus.Pending,
+            "PE" => ApplicationStatus.Pending,
+            "PG" => ApplicationStatus.Pending,
+            "PS" => ApplicationStatus.Pending,
+            _ => ApplicationStatus.Unknown
+        };
+    }
+
+    /// <summary>
+    /// Maps the CBMS application processing status code (<c>sebtAppSts</c>) to a portal ApplicationStatus.
+    /// These 2-letter codes represent application processing state — all known codes are in-process.
+    /// </summary>
     private static ApplicationStatus MapApplicationStatus(string? sebtAppSts)
     {
         if (string.IsNullOrEmpty(sebtAppSts)) return ApplicationStatus.Unknown;
         return sebtAppSts.ToUpperInvariant() switch
         {
-            "PENDING" => ApplicationStatus.Pending,
-            "APPROVED" => ApplicationStatus.Approved,
-            "DENIED" => ApplicationStatus.Denied,
-            "UNDER REVIEW" => ApplicationStatus.UnderReview,
-            "CANCELLED" => ApplicationStatus.Cancelled,
+            "AI" => ApplicationStatus.Pending,
+            "PD" => ApplicationStatus.Pending,
+            "PG" => ApplicationStatus.Pending,
+            "PI" => ApplicationStatus.Pending,
+            "PN" => ApplicationStatus.Pending,
+            "PS" => ApplicationStatus.Pending,
+            "PW" => ApplicationStatus.Pending,
+            "RC" => ApplicationStatus.Pending,
             _ => ApplicationStatus.Unknown
         };
     }

@@ -1,4 +1,5 @@
 using System.Composition;
+using System.Diagnostics;
 using Microsoft.Extensions.Caching.Hybrid;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
@@ -52,7 +53,6 @@ public class ColoradoSummerEbtCaseService : ISummerEbtCaseService
         if (identifierType == HouseholdIdentifierType.Phone)
             return await GetHouseholdByPhoneAsync(identifierValue, piiVisibility, cancellationToken).ConfigureAwait(false);
 
-        _logger.LogWarning("No HouseholdIdentifierType found when calling GetHouseholdByIdentifierAsync");
         return null;
     }
 
@@ -63,7 +63,6 @@ public class ColoradoSummerEbtCaseService : ISummerEbtCaseService
         IdentityAssuranceLevel identityAssuranceLevel,
         CancellationToken cancellationToken = default)
     {
-        _logger.LogDebug("CBMS does not support lookup by guardian email; returning null.");
         return Task.FromResult<HouseholdData?>(null);
     }
 
@@ -75,14 +74,12 @@ public class ColoradoSummerEbtCaseService : ISummerEbtCaseService
         var options = CbmsOptionsHelper.GetCbmsOptions(_configuration);
         if (!options.IsConfigured)
         {
-            _logger.LogWarning("Cbms not configured; skipping phone lookup.");
             return null;
         }
 
         var normalizedPhone = PhoneNormalizer.Normalize(phoneNumber);
         if (string.IsNullOrEmpty(normalizedPhone))
         {
-            _logger.LogWarning("Invalid or empty phone number for CBMS lookup.");
             return null;
         }
 
@@ -90,7 +87,16 @@ public class ColoradoSummerEbtCaseService : ISummerEbtCaseService
         {
             var client = GetOrCreateClient(options);
             var request = new GetAccountDetailsRequest { PhnNm = normalizedPhone };
+
+            _logger.LogInformation("CBMS GetAccountDetails: starting request (POST /sebt/get-account-details)");
+            var sw = Stopwatch.StartNew();
             var response = await client.Sebt.GetAccountDetails.PostAsync(request, cancellationToken: cancellationToken).ConfigureAwait(false);
+            sw.Stop();
+
+            var rowCount = response?.StdntEnrollDtls?.Count ?? 0;
+            _logger.LogInformation(
+                "CBMS GetAccountDetails: completed in {ElapsedMs}ms, returned {RowCount} enrollment row(s)",
+                sw.ElapsedMilliseconds, rowCount);
 
             if (response?.StdntEnrollDtls == null || response.StdntEnrollDtls.Count == 0)
                 return null;
@@ -99,7 +105,7 @@ public class ColoradoSummerEbtCaseService : ISummerEbtCaseService
         }
         catch (ErrorResponse ex) when (ex.ResponseStatusCode == 404)
         {
-            _logger.LogWarning(ex, "CBMS GetAccountDetails failed with status code: {StatusCode}", 404);
+            _logger.LogInformation("CBMS GetAccountDetails: returned 404 (no household found)");
             return null;
         }
         catch (ErrorResponse ex)
@@ -146,7 +152,8 @@ public class ColoradoSummerEbtCaseService : ISummerEbtCaseService
                 clientSecret,
                 options.ApiBaseUrl,
                 options.TokenEndpointUrl,
-                handler);
+                handler,
+                _logger);
             _cachedOptions = options;
             return _cachedClient;
         }

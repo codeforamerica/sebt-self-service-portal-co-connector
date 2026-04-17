@@ -41,4 +41,19 @@ public class ColoradoEnrollmentCheckServiceTests
         await Assert.ThrowsAsync<InvalidOperationException>(
             () => service.CheckEnrollmentAsync(request));
     }
+
+    [Theory]
+    [InlineData("Y", EnrollmentStatus.Match)]
+    [InlineData("y", EnrollmentStatus.Match)]
+    [InlineData("N", EnrollmentStatus.NonMatch)]
+    [InlineData("n", EnrollmentStatus.NonMatch)]
+    [InlineData(null, EnrollmentStatus.NonMatch)]
+    [InlineData("", EnrollmentStatus.NonMatch)]
+    [InlineData("UNEXPECTED", EnrollmentStatus.NonMatch)]
+    public void MapEnrollmentStatus_MapsSebtEligStsValues(string? status, EnrollmentStatus expected)
+    {
+        var result = ColoradoEnrollmentCheckService.MapEnrollmentStatus(status);
+
+        Assert.Equal(expected, result);
+    }
 }

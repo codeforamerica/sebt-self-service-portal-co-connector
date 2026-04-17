@@ -83,27 +83,29 @@ foreach (var student in response.StdntEnrollDtls)
 
 ```csharp
 var response = await client.Sebt.UpdateStdDtls.PatchAsync(
-    new UpdateStudentDetailsRequest
-    {
-        SebtChldId = "CH-88291",
-        SebtAppId = "APP-12345",
-        Addr = new Address
+    [
+        new UpdateStudentDetailsRequest
         {
-            AddrLn1 = "456 Oak Street",
-            AddrLn2 = "Suite 200",
-            Cty = "Denver",
-            StaCd = "CO",
-            Zip = "80202",
-            Zip4 = "4421"
-        },
-        GurdFstNm = "Jane",
-        GurdLstNm = "Smith",
-        GurdEmailAddr = "jane.smith@example.com",
-        ReqNewCard = "Y",
-        NtfnOptInSw = "Y",
-        NtfnSrc = "email",
-        OptOut = "N"
-    });
+            SebtChldId = "CH-88291",
+            SebtAppId = "APP-12345",
+            Addr = new Address
+            {
+                AddrLn1 = "456 Oak Street",
+                AddrLn2 = "Suite 200",
+                Cty = "Denver",
+                StaCd = "CO",
+                Zip = "80202",
+                Zip4 = "4421"
+            },
+            GurdFstNm = "Jane",
+            GurdLstNm = "Smith",
+            GurdEmailAddr = "jane.smith@example.com",
+            ReqNewCard = "Y",
+            NtfnOptInSw = "Y",
+            NtfnSrc = "email",
+            OptOut = "N"
+        }
+    ]);
 
 Console.WriteLine($"Response: {response.RespCd} — {response.RespMsg}");
 ```

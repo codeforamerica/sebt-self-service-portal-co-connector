@@ -79,9 +79,9 @@ public class CbmsResponseMapperTests
         student.StdFstNm = "Jane";
         student.StdLstNm = "Doe";
         student.StdDob = "2015-03-15";
-        student.StdntEligSts = "Eligible";
+        student.StdntEligSts = "AP";
         student.EligSrc = "CBMS";
-        student.SebtAppSts = "approved";
+        student.SebtAppSts = "PW";
         student.CbmsCsId = "case-123";
         student.EbtCardLastFour = "4321";
         student.EbtCardSts = "active";
@@ -105,19 +105,60 @@ public class CbmsResponseMapperTests
         Assert.Equal("case-123", @case.EbtCaseNumber);
         Assert.Equal("4321", @case.EbtCardLastFour);
         Assert.Equal("Active", @case.EbtCardStatus);
+        Assert.False(@case.IsStreamlineCertified);
     }
 
     [Theory]
-    [InlineData("PENDING", ApplicationStatus.Pending)]
-    [InlineData("APPROVED", ApplicationStatus.Approved)]
-    [InlineData("DENIED", ApplicationStatus.Denied)]
-    [InlineData("CANCELLED", ApplicationStatus.Cancelled)]
-    [InlineData("UNDER REVIEW", ApplicationStatus.UnderReview)]
-    [InlineData("unknown", ApplicationStatus.Unknown)]
-    public void MapToHouseholdData_maps_application_status(string sebtAppSts, ApplicationStatus expected)
+    [InlineData("AI", ApplicationStatus.Pending)]
+    [InlineData("PD", ApplicationStatus.Pending)]
+    [InlineData("PG", ApplicationStatus.Pending)]
+    [InlineData("PI", ApplicationStatus.Pending)]
+    [InlineData("PN", ApplicationStatus.Pending)]
+    [InlineData("PS", ApplicationStatus.Pending)]
+    [InlineData("PW", ApplicationStatus.Pending)]
+    [InlineData("RC", ApplicationStatus.Pending)]
+    [InlineData("AM", ApplicationStatus.Unknown)]
+    [InlineData("DU", ApplicationStatus.Unknown)]
+    [InlineData("XYZZY", ApplicationStatus.Unknown)]
+    [InlineData("", ApplicationStatus.Unknown)]
+    [InlineData(null, ApplicationStatus.Unknown)]
+    public void MapToHouseholdData_maps_application_status(string? sebtAppSts, ApplicationStatus expected)
     {
         var student = CreateMinimalStudent();
+        student.EligSrc = "CBMS";
         student.SebtAppSts = sebtAppSts;
+        var response = new GetAccountDetailsResponse
+        {
+            StdntEnrollDtls = new List<GetAccountStudentDetail> { student }
+        };
+        var piiVisibility = new PiiVisibility(IncludeAddress: false, IncludeEmail: false, IncludePhone: false);
+
+        var result = CbmsResponseMapper.MapToHouseholdData(response, "8185551234", piiVisibility);
+
+        var app = Assert.Single(result.Applications);
+        Assert.Equal(expected, app.ApplicationStatus);
+    }
+
+    [Theory]
+    [InlineData("AP", ApplicationStatus.Approved)]
+    [InlineData("DE", ApplicationStatus.Denied)]
+    [InlineData("OT", ApplicationStatus.Denied)]
+    [InlineData("AI", ApplicationStatus.Pending)]
+    [InlineData("PD", ApplicationStatus.Pending)]
+    [InlineData("PE", ApplicationStatus.Pending)]
+    [InlineData("PG", ApplicationStatus.Pending)]
+    [InlineData("PS", ApplicationStatus.Pending)]
+    [InlineData("AM", ApplicationStatus.Unknown)]
+    [InlineData("DD", ApplicationStatus.Unknown)]
+    [InlineData("XYZZY", ApplicationStatus.Unknown)]
+    [InlineData("", ApplicationStatus.Unknown)]
+    [InlineData(null, ApplicationStatus.Unknown)]
+    public void MapToHouseholdData_maps_case_status_from_stdntEligSts(string? stdntEligSts, ApplicationStatus expected)
+    {
+        var student = CreateMinimalStudent();
+        student.StdntEligSts = stdntEligSts;
+        // Use DIRC so the student always appears in cases regardless of application status
+        student.EligSrc = "DIRC";
         var response = new GetAccountDetailsResponse
         {
             StdntEnrollDtls = new List<GetAccountStudentDetail> { student }
@@ -218,6 +259,8 @@ public class CbmsResponseMapperTests
         Assert.Single(result.SummerEbtCases);
         Assert.Equal("AutoChild", result.SummerEbtCases[0].ChildFirstName);
         Assert.Empty(result.Applications);
+        Assert.True(result.SummerEbtCases[0].IsStreamlineCertified);
+        Assert.False(result.SummerEbtCases[0].IsCoLoaded);
     }
 
     [Fact]
@@ -225,7 +268,8 @@ public class CbmsResponseMapperTests
     {
         var student = CreateMinimalStudent();
         student.EligSrc = "CBMS";
-        student.SebtAppSts = "PENDING";
+        student.SebtAppSts = "RC";
+        student.StdntEligSts = "PE";
         student.StdFstNm = "AppChild";
         var response = new GetAccountDetailsResponse
         {
@@ -239,7 +283,8 @@ public class CbmsResponseMapperTests
         var app = Assert.Single(result.Applications);
         var child = Assert.Single(app.Children);
         Assert.Equal("AppChild", child.FirstName);
-        Assert.Equal(ApplicationStatus.Pending, child.Status);
+        Assert.Equal(ApplicationStatus.Pending, app.ApplicationStatus);
+        Assert.Equal(IssuanceType.SummerEbt, app.IssuanceType);
     }
 
     [Fact]
@@ -247,7 +292,8 @@ public class CbmsResponseMapperTests
     {
         var student = CreateMinimalStudent();
         student.EligSrc = "CBMS";
-        student.SebtAppSts = "APPROVED";
+        student.SebtAppSts = "PW";
+        student.StdntEligSts = "AP";
         student.StdFstNm = "ApprovedChild";
         student.EbtCardLastFour = "9999";
         student.EbtCardSts = "ACTIVE";
@@ -266,7 +312,8 @@ public class CbmsResponseMapperTests
         var app = Assert.Single(result.Applications);
         var child = Assert.Single(app.Children);
         Assert.Equal("ApprovedChild", child.FirstName);
-        Assert.Equal(ApplicationStatus.Approved, child.Status);
+        Assert.Equal(ApplicationStatus.Pending, app.ApplicationStatus);
+        Assert.Equal(IssuanceType.SummerEbt, app.IssuanceType);
     }
 
     [Fact]
@@ -286,10 +333,11 @@ public class CbmsResponseMapperTests
         Assert.Single(result.SummerEbtCases);
         Assert.Equal("UnknownChild", result.SummerEbtCases[0].ChildFirstName);
         Assert.Empty(result.Applications);
+        Assert.True(result.SummerEbtCases[0].IsStreamlineCertified);
     }
 
     [Fact]
-    public void MapToHouseholdData_case_has_eligibility_source_and_issuance_type()
+    public void MapToHouseholdData_DIRC_auto_eligible_sets_household_benefit_issuance_and_case()
     {
         var student = CreateMinimalStudent();
         student.EligSrc = "DIRC";
@@ -301,9 +349,8 @@ public class CbmsResponseMapperTests
 
         var result = CbmsResponseMapper.MapToHouseholdData(response, "8185551234", piiVisibility);
 
-        var caseRecord = Assert.Single(result.SummerEbtCases);
-        Assert.Equal("DIRC", caseRecord.EligibilitySource);
-        Assert.Equal(IssuanceType.SummerEbt, caseRecord.IssuanceType);
+        Assert.Equal(BenefitIssuanceType.SummerEbt, result.BenefitIssuanceType);
+        Assert.Single(result.SummerEbtCases);
     }
 
     [Theory]
@@ -349,6 +396,48 @@ public class CbmsResponseMapperTests
         Assert.Null(caseRecord.ApplicationId);
         Assert.Null(caseRecord.ApplicationStudentId);
         Assert.Equal("7009001", caseRecord.SummerEBTCaseID);
+    }
+
+    [Fact]
+    public void MapToHouseholdData_populates_child_status_from_stdntEligSts()
+    {
+        var approved = CreateMinimalStudent();
+        approved.EligSrc = "CBMS";
+        approved.SebtAppId = 1001;
+        approved.StdntEligSts = "AP";
+        approved.StdFstNm = "ApprovedChild";
+
+        var denied = CreateMinimalStudent();
+        denied.EligSrc = "CBMS";
+        denied.SebtAppId = 1001;
+        denied.StdntEligSts = "DE";
+        denied.StdFstNm = "DeniedChild";
+
+        var pending = CreateMinimalStudent();
+        pending.EligSrc = "CBMS";
+        pending.SebtAppId = 1001;
+        pending.StdntEligSts = "PE";
+        pending.StdFstNm = "PendingChild";
+
+        var response = new GetAccountDetailsResponse
+        {
+            StdntEnrollDtls = new List<GetAccountStudentDetail> { approved, denied, pending }
+        };
+        var piiVisibility = new PiiVisibility(IncludeAddress: false, IncludeEmail: false, IncludePhone: false);
+
+        var result = CbmsResponseMapper.MapToHouseholdData(response, "8185551234", piiVisibility);
+
+        var app = Assert.Single(result.Applications);
+        Assert.Equal(3, app.Children.Count);
+
+        var approvedChild = app.Children.First(c => c.FirstName == "ApprovedChild");
+        Assert.Equal(ApplicationStatus.Approved, approvedChild.Status);
+
+        var deniedChild = app.Children.First(c => c.FirstName == "DeniedChild");
+        Assert.Equal(ApplicationStatus.Denied, deniedChild.Status);
+
+        var pendingChild = app.Children.First(c => c.FirstName == "PendingChild");
+        Assert.Equal(ApplicationStatus.Pending, pendingChild.Status);
     }
 
     private static GetAccountStudentDetail CreateMinimalStudent()
