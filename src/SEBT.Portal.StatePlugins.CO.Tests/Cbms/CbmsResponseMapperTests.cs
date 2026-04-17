@@ -79,9 +79,9 @@ public class CbmsResponseMapperTests
         student.StdFstNm = "Jane";
         student.StdLstNm = "Doe";
         student.StdDob = "2015-03-15";
-        student.StdntEligSts = "Eligible";
+        student.StdntEligSts = "AP";
         student.EligSrc = "CBMS";
-        student.SebtAppSts = "approved";
+        student.SebtAppSts = "PW";
         student.CbmsCsId = "case-123";
         student.EbtCardLastFour = "4321";
         student.EbtCardSts = "active";
