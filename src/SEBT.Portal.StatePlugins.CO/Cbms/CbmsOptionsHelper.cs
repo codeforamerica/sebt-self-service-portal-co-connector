@@ -36,7 +36,7 @@ internal static class CbmsOptionsHelper
 /// <summary>
 /// Connection options for the CBMS SEBT API. Built from configuration and environment variables.
 /// </summary>
-internal sealed record CbmsConnectionOptions(
+public sealed record CbmsConnectionOptions(
     string ClientId,
     string ClientSecret,
     string ApiBaseUrl,

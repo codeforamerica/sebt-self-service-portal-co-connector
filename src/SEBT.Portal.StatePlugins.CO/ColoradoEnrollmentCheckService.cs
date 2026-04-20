@@ -5,6 +5,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Kiota.Abstractions.Authentication;
 using Microsoft.Kiota.Http.HttpClientLibrary;
+using SEBT.Portal.StatePlugins.CO.Cbms;
 using SEBT.Portal.StatePlugins.CO.CbmsApi;
 using SEBT.Portal.StatePlugins.CO.CbmsApi.Models;
 using SEBT.Portal.StatesPlugins.Interfaces;
@@ -20,7 +21,7 @@ namespace SEBT.Portal.StatePlugins.CO;
 /// </summary>
 [Export(typeof(IStatePlugin))]
 [ExportMetadata("StateCode", "CO")]
-public class ColoradoEnrollmentCheckService : IEnrollmentCheckService
+public class ColoradoEnrollmentCheckService : ColoradoCbmsServiceBase, IEnrollmentCheckService
 {
     private const string BaseUrlConfigKey = "COConnector:CbmsApiBaseUrl";
     private const string ApiKeyConfigKey = "COConnector:CbmsApiKey";
@@ -38,37 +39,10 @@ public class ColoradoEnrollmentCheckService : IEnrollmentCheckService
     public ColoradoEnrollmentCheckService(
         [Import(AllowDefault = true)] IConfiguration? configuration = null,
         [Import(AllowDefault = true)] ILoggerFactory? loggerFactory = null)
+    : base(null, loggerFactory.CreateLogger<ColoradoEnrollmentCheckService>())
     {
         _configuration = configuration;
         _logger = loggerFactory?.CreateLogger<ColoradoEnrollmentCheckService>() ?? NullLogger<ColoradoEnrollmentCheckService>.Instance;
-    }
-
-    private string GetBaseUrl()
-    {
-        var baseUrl = _configuration?[BaseUrlConfigKey]
-            ?? Environment.GetEnvironmentVariable("COConnector__CbmsApiBaseUrl");
-
-        if (string.IsNullOrWhiteSpace(baseUrl))
-        {
-            throw new InvalidOperationException(
-                $"CBMS API base URL is not configured. Set {BaseUrlConfigKey} in appsettings or COConnector__CbmsApiBaseUrl environment variable.");
-        }
-
-        return baseUrl;
-    }
-
-    private string GetApiKey()
-    {
-        var apiKey = _configuration?[ApiKeyConfigKey]
-            ?? Environment.GetEnvironmentVariable("COConnector__CbmsApiKey");
-
-        if (string.IsNullOrWhiteSpace(apiKey))
-        {
-            throw new InvalidOperationException(
-                $"CBMS API key is not configured. Set {ApiKeyConfigKey} in appsettings or COConnector__CbmsApiKey environment variable.");
-        }
-
-        return apiKey;
     }
 
     /// <inheritdoc />
@@ -77,7 +51,7 @@ public class ColoradoEnrollmentCheckService : IEnrollmentCheckService
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(request);
-
+        
         if (request.Children.Count == 0)
         {
             return new EnrollmentCheckResult
@@ -86,9 +60,13 @@ public class ColoradoEnrollmentCheckService : IEnrollmentCheckService
             };
         }
 
-        var baseUrl = GetBaseUrl();
-        var apiKey = GetApiKey();
-        var client = CreateApiClient(baseUrl, apiKey);
+        var options = CbmsOptionsHelper.GetCbmsOptions(_configuration);
+        if (!options.IsConfigured)
+        {
+            return null;
+        }
+        
+        var client = GetOrCreateClient(options);
 
         // Map each child to a CBMS CheckEnrollmentRequest
         var cbmsRequests = request.Children.Select(child => new CbmsCheckEnrollmentRequest
@@ -116,24 +94,6 @@ public class ColoradoEnrollmentCheckService : IEnrollmentCheckService
             Results = results,
             ResponseMessage = cbmsResponse?.RespMsg
         };
-    }
-
-    /// <summary>
-    /// Creates a Kiota API client configured with the CBMS API base URL and API key.
-    /// </summary>
-    private static CbmsSebtApiClient CreateApiClient(string baseUrl, string apiKey)
-    {
-        var authProvider = new ApiKeyAuthenticationProvider(
-            apiKey,
-            "x-api-key",
-            ApiKeyAuthenticationProvider.KeyLocation.Header);
-
-        var adapter = new HttpClientRequestAdapter(authProvider)
-        {
-            BaseUrl = baseUrl
-        };
-
-        return new CbmsSebtApiClient(adapter);
     }
 
     /// <summary>
@@ -197,8 +157,6 @@ public class ColoradoEnrollmentCheckService : IEnrollmentCheckService
         return sebtEligSts?.ToUpperInvariant() switch
         {
             "Y" => EnrollmentStatus.Match,
-            "N" => EnrollmentStatus.NonMatch,
-            null => EnrollmentStatus.NonMatch,
             _ => EnrollmentStatus.NonMatch
         };
     }
