@@ -66,6 +66,19 @@ public class ColoradoSummerEbtCaseService : ISummerEbtCaseService
         return Task.FromResult<HouseholdData?>(null);
     }
 
+    /// <inheritdoc />
+    /// <remarks>
+    /// Warehouse IC+DOB verification via <c>GetHouseholdByGuardian</c> is implemented only for DC.
+    /// Colorado co-loaded SNAP/TANF matching uses on-file / connector data only (see portal use case).
+    /// </remarks>
+    public Task<bool> TryMatchCoLoadedGuardianByBenefitIdAndDobAsync(
+        string benefitIdentifierIc,
+        DateOnly guardianDateOfBirth,
+        CancellationToken cancellationToken = default)
+    {
+        return Task.FromResult(false);
+    }
+
     private async Task<HouseholdData?> GetHouseholdByPhoneAsync(
         string phoneNumber,
         PiiVisibility piiVisibility,
