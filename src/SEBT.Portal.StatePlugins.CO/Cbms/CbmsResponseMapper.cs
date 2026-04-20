@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Logging;
 using SEBT.Portal.StatePlugins.CO.CbmsApi.Models;
 using SEBT.Portal.StatesPlugins.Interfaces.Models;
 using SEBT.Portal.StatesPlugins.Interfaces.Models.Household;
@@ -18,7 +19,8 @@ internal static class CbmsResponseMapper
     public static HouseholdData MapToHouseholdData(
         GetAccountDetailsResponse response,
         string queryPhone,
-        PiiVisibility piiVisibility)
+        PiiVisibility piiVisibility,
+        ILogger? logger = null)
     {
         var students = response.StdntEnrollDtls ?? new List<GetAccountStudentDetail>();
         var first = students.FirstOrDefault();
@@ -34,7 +36,7 @@ internal static class CbmsResponseMapper
                 LastName = first.GurdLstNm ?? string.Empty
             } : null,
             BenefitIssuanceType = BenefitIssuanceType.SummerEbt,
-            SummerEbtCases = BuildCases(students, piiVisibility),
+            SummerEbtCases = BuildCases(students, piiVisibility, logger),
             Applications = BuildApplications(students)
         };
 
@@ -61,7 +63,7 @@ internal static class CbmsResponseMapper
         };
     }
 
-    private static SummerEbtCase MapToSummerEbtCase(GetAccountStudentDetail s, PiiVisibility piiVisibility)
+    private static SummerEbtCase MapToSummerEbtCase(GetAccountStudentDetail s, PiiVisibility piiVisibility, ILogger? logger)
     {
         return new SummerEbtCase
         {
@@ -79,7 +81,7 @@ internal static class CbmsResponseMapper
             MailingAddress = piiVisibility.IncludeAddress ? MapAddress(s) : null,
             EbtCaseNumber = s.CbmsCsId,
             EbtCardLastFour = s.EbtCardLastFour,
-            EbtCardStatus = MapCardStatus(s.EbtCardSts).ToString(),
+            EbtCardStatus = MapCardStatus(s.EbtCardSts, logger).ToString(),
             EbtCardIssueDate = ParseDateOnly(s.CardIssDt),
             EbtCardBalance = s.CardBal.HasValue ? (decimal)s.CardBal.Value : null,
             BenefitAvailableDate = ParseDateOnly(s.BenAvalDt),
@@ -96,12 +98,13 @@ internal static class CbmsResponseMapper
     /// </summary>
     private static List<SummerEbtCase> BuildCases(
         List<GetAccountStudentDetail> students,
-        PiiVisibility piiVisibility)
+        PiiVisibility piiVisibility,
+        ILogger? logger)
     {
         return students
             .Where(s => !EligibilitySourceClassifier.IsApplicationBased(s.EligSrc)
                       || MapCaseStatus(s.StdntEligSts) == ApplicationStatus.Approved)
-            .Select(s => MapToSummerEbtCase(s, piiVisibility))
+            .Select(s => MapToSummerEbtCase(s, piiVisibility, logger))
             .ToList();
     }
 
@@ -176,17 +179,23 @@ internal static class CbmsResponseMapper
         };
     }
 
-    private static CardStatus MapCardStatus(string? ebtCardSts)
+    private static CardStatus MapCardStatus(string? ebtCardSts, ILogger? logger = null)
     {
         if (string.IsNullOrEmpty(ebtCardSts)) return CardStatus.Unknown;
-        return ebtCardSts.ToUpperInvariant() switch
+        switch (ebtCardSts.ToUpperInvariant())
         {
-            "REQUESTED" => CardStatus.Requested,
-            "MAILED" => CardStatus.Mailed,
-            "ACTIVE" => CardStatus.Active,
-            "DEACTIVATED" => CardStatus.Deactivated,
-            _ => CardStatus.Unknown
-        };
+            case "REQUESTED": return CardStatus.Requested;
+            case "MAILED": return CardStatus.Mailed;
+            case "ACTIVE": return CardStatus.Active;
+            case "DEACTIVATED": return CardStatus.Deactivated;
+            default:
+                // Log at Information so operators can see new CBMS tokens as they appear.
+                // Policy (SelfServiceRules.AllowedCardStatuses) is evaluated on the portal side.
+                logger?.LogInformation(
+                    "CBMS returned unmapped ebtCardSts token {Token}; falling back to CardStatus.Unknown",
+                    ebtCardSts);
+                return CardStatus.Unknown;
+        }
     }
 
     private static DateOnly? ParseDateOnly(string? value)
