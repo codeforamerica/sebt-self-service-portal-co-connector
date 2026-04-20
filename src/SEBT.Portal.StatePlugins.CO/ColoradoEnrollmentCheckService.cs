@@ -39,7 +39,7 @@ public class ColoradoEnrollmentCheckService : ColoradoCbmsServiceBase, IEnrollme
     public ColoradoEnrollmentCheckService(
         [Import(AllowDefault = true)] IConfiguration? configuration = null,
         [Import(AllowDefault = true)] ILoggerFactory? loggerFactory = null)
-    : base(null, loggerFactory.CreateLogger<ColoradoEnrollmentCheckService>())
+    : base(null, loggerFactory?.CreateLogger<ColoradoEnrollmentCheckService>() ?? NullLogger<ColoradoEnrollmentCheckService>.Instance)
     {
         _configuration = configuration;
         _logger = loggerFactory?.CreateLogger<ColoradoEnrollmentCheckService>() ?? NullLogger<ColoradoEnrollmentCheckService>.Instance;
@@ -63,9 +63,11 @@ public class ColoradoEnrollmentCheckService : ColoradoCbmsServiceBase, IEnrollme
         var options = CbmsOptionsHelper.GetCbmsOptions(_configuration);
         if (!options.IsConfigured)
         {
-            return null;
+            throw new InvalidOperationException(
+                "CBMS API is not configured. Set Cbms:ClientId and Cbms:ClientSecret in appsettings " +
+                "or Cbms__ClientId/Cbms__ClientSecret environment variables.");
         }
-        
+
         var client = GetOrCreateClient(options);
 
         // Map each child to a CBMS CheckEnrollmentRequest
