@@ -77,6 +77,7 @@ internal static class CbmsResponseMapper
             ChildDateOfBirth = ParseDateOnly(s.StdDob) ?? DateOnly.MinValue,
             HouseholdType = "SEBT",
             EligibilityType = s.StdntEligSts ?? string.Empty,
+            IssuanceType = IssuanceType.SummerEbt,
             ApplicationStatus = MapCaseStatus(s.StdntEligSts),
             MailingAddress = piiVisibility.IncludeAddress ? MapAddress(s) : null,
             EbtCaseNumber = s.CbmsCsId,
