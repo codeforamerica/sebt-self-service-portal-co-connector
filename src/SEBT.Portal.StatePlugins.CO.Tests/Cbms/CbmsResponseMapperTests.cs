@@ -309,6 +309,7 @@ public class CbmsResponseMapperTests
         var caseRecord = Assert.Single(result.SummerEbtCases);
         Assert.Equal("ApprovedChild", caseRecord.ChildFirstName);
         Assert.Equal("9999", caseRecord.EbtCardLastFour);
+        Assert.Equal(IssuanceType.SummerEbt, caseRecord.IssuanceType);
 
         var app = Assert.Single(result.Applications);
         var child = Assert.Single(app.Children);
