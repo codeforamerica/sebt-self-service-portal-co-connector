@@ -12,6 +12,15 @@ internal sealed class CbmsHouseholdCache : ICbmsHouseholdCache
 {
     private const string KeyPrefix = "co:cbms:";
 
+    // Sentinel stored in the cache for empty/null CBMS responses so that
+    // HybridCache treats the negative result as a hit and does not re-invoke
+    // the factory until the NegativeCacheExpiration window elapses.
+    // ReferenceEquals is used to detect this sentinel — do not use value equality.
+    private static readonly GetAccountDetailsResponse NegativeMarkerResponse = new()
+    {
+        StdntEnrollDtls = new()
+    };
+
     private readonly HybridCache _hybridCache;
     private readonly IHMACSHA256Hasher _hasher;
     private readonly IHostApplicationLifetime _lifetime;
@@ -52,6 +61,9 @@ internal sealed class CbmsHouseholdCache : ICbmsHouseholdCache
 
         if (envelope is null) return null;
 
+        // Negative cache: sentinel envelope was stored for an empty/null CBMS response.
+        if (ReferenceEquals(envelope.Response, NegativeMarkerResponse)) return null;
+
         if (DateTimeOffset.UtcNow < envelope.SoftExpiryUtc) return envelope.Response;
 
         // Stale: return value immediately and trigger background refresh.
@@ -63,12 +75,20 @@ internal sealed class CbmsHouseholdCache : ICbmsHouseholdCache
         string normalizedPhone, CancellationToken cancellationToken)
     {
         var response = await _fetchFromCbms(normalizedPhone, cancellationToken).ConfigureAwait(false);
+        var now = DateTimeOffset.UtcNow;
+
         if (response is null || response.StdntEnrollDtls is null || response.StdntEnrollDtls.Count == 0)
         {
-            // Negative cache: D2 will switch this to return a sentinel envelope with shorter TTL.
-            return null;
+            // Negative cache: store a sentinel envelope with a shorter TTL so the
+            // HybridCache layer treats it as a hit and does not re-invoke the factory
+            // until NegativeCacheExpiration elapses.
+            return new CbmsHouseholdCacheEnvelope(
+                Response: NegativeMarkerResponse,
+                SoftExpiryUtc: now + _options.NegativeCacheExpiration,
+                HardExpiryUtc: now + _options.NegativeCacheExpiration,
+                CachedAtUtc: now);
         }
-        var now = DateTimeOffset.UtcNow;
+
         return new CbmsHouseholdCacheEnvelope(
             Response: response,
             SoftExpiryUtc: now + _options.SoftExpiration,
