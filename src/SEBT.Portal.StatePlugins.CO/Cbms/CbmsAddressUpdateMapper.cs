@@ -90,6 +90,27 @@ internal static class CbmsAddressUpdateMapper
         return true;
     }
 
+    /// <summary>
+    /// Mutates a cached <see cref="GetAccountStudentDetail"/> row to reflect the address that was
+    /// just successfully PATCHed to CBMS, so that subsequent reads from the household cache
+    /// return the post-update state without a round-trip.
+    /// Uses the same field mapping as <see cref="ToCbmsAddress"/> so the cache stays consistent
+    /// with what CBMS received.
+    /// </summary>
+    internal static void ApplyAddressToRow(HouseholdAddress address, GetAccountStudentDetail row)
+    {
+        ArgumentNullException.ThrowIfNull(address);
+        ArgumentNullException.ThrowIfNull(row);
+
+        var (zip, zip4) = SplitPostalCode(address.PostalCode);
+        row.AddrLn1 = address.StreetAddress1;
+        row.AddrLn2 = address.StreetAddress2 ?? string.Empty;
+        row.Cty = address.City;
+        row.StaCd = address.State;
+        row.Zip = zip;
+        row.Zip4 = zip4 ?? string.Empty;
+    }
+
     internal static (string? Zip, string? Zip4) SplitPostalCode(string? postalCode)
     {
         if (string.IsNullOrWhiteSpace(postalCode))
