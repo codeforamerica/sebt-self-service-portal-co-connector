@@ -126,9 +126,42 @@ internal sealed class CbmsHouseholdCache : ICbmsHouseholdCache
         }
     }
 
-    public Task SetAsync(string normalizedPhone, GetAccountDetailsResponse value, CancellationToken cancellationToken)
-        => throw new NotImplementedException("Implemented in Task D3");
+    public async Task SetAsync(string normalizedPhone, GetAccountDetailsResponse value, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(value);
+        var key = KeyFor(normalizedPhone);
+        var now = DateTimeOffset.UtcNow;
+        var envelope = new CbmsHouseholdCacheEnvelope(
+            Response: value,
+            SoftExpiryUtc: now + _options.SoftExpiration,
+            HardExpiryUtc: now + _options.HardExpiration,
+            CachedAtUtc: now);
+
+        try
+        {
+            await _hybridCache.SetAsync(
+                key, envelope,
+                new HybridCacheEntryOptions { Expiration = _options.HardExpiration },
+                cancellationToken: cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Cache write-through failed for {Prefix}; invalidating to force re-fetch", KeyPrefix + "*");
+            try
+            {
+                await InvalidateAsync(normalizedPhone, cancellationToken).ConfigureAwait(false);
+            }
+            catch (Exception inner)
+            {
+                // Best-effort secondary; if Invalidate also fails, log and move on.
+                _logger.LogWarning(inner, "Cache invalidation also failed during tripwire");
+            }
+        }
+    }
 
     public Task InvalidateAsync(string normalizedPhone, CancellationToken cancellationToken)
-        => throw new NotImplementedException("Implemented in Task D3");
+    {
+        var key = KeyFor(normalizedPhone);
+        return _hybridCache.RemoveAsync(key, cancellationToken).AsTask();
+    }
 }
