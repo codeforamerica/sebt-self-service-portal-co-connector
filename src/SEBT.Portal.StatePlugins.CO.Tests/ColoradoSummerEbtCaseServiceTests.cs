@@ -14,6 +14,7 @@ using SEBT.Portal.StatesPlugins.Interfaces.Services;
 
 namespace SEBT.Portal.StatePlugins.CO.Tests;
 
+[Collection("PluginCache")]
 public class ColoradoSummerEbtCaseServiceTests : IDisposable
 {
     public ColoradoSummerEbtCaseServiceTests() => PluginCache.ResetForTesting();

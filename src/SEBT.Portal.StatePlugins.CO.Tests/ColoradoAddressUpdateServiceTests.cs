@@ -10,6 +10,7 @@ using HouseholdAddress = SEBT.Portal.StatesPlugins.Interfaces.Models.Household.A
 
 namespace SEBT.Portal.StatePlugins.CO.Tests;
 
+[Collection("PluginCache")]
 public class ColoradoAddressUpdateServiceTests : IDisposable
 {
     public ColoradoAddressUpdateServiceTests() => PluginCache.ResetForTesting();

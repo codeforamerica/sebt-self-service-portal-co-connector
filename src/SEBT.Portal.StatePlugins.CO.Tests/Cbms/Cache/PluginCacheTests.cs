@@ -8,6 +8,7 @@ using SEBT.Portal.StatesPlugins.Interfaces.Services;
 
 namespace SEBT.Portal.StatePlugins.CO.Tests.Cbms.Cache;
 
+[Collection("PluginCache")]
 public class PluginCacheTests : IDisposable
 {
     public PluginCacheTests() => PluginCache.ResetForTesting();
