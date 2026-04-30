@@ -103,7 +103,8 @@ public class CbmsResponseMapperTests
         Assert.Equal("Doe", @case.ChildLastName);
         Assert.Equal(new DateOnly(2015, 3, 15), @case.ChildDateOfBirth);
         Assert.Equal(ApplicationStatus.Approved, @case.ApplicationStatus);
-        Assert.Equal("2001", @case.EbtCaseNumber);
+        Assert.Equal("case-123", @case.EbtCaseNumber);
+        Assert.Equal("2001", @case.CaseDisplayNumber);
         Assert.Equal("4321", @case.EbtCardLastFour);
         Assert.Equal("Active", @case.EbtCardStatus);
         Assert.False(@case.IsStreamlineCertified);
@@ -126,6 +127,7 @@ public class CbmsResponseMapperTests
 
         var @case = Assert.Single(result.SummerEbtCases);
         Assert.Equal("CBMS-CS-ONLY", @case.EbtCaseNumber);
+        Assert.Equal("CBMS-CS-ONLY", @case.CaseDisplayNumber);
         Assert.Null(@case.ApplicationId);
     }
 
@@ -147,6 +149,7 @@ public class CbmsResponseMapperTests
 
         var @case = Assert.Single(result.SummerEbtCases);
         Assert.Equal("FALLBACK-CS", @case.EbtCaseNumber);
+        Assert.Equal("FALLBACK-CS", @case.CaseDisplayNumber);
     }
 
     [Theory]

@@ -66,12 +66,11 @@ internal static class CbmsResponseMapper
     private static SummerEbtCase MapToSummerEbtCase(GetAccountStudentDetail s, PiiVisibility piiVisibility, ILogger? logger)
     {
         var isApplicationBased = EligibilitySourceClassifier.IsApplicationBased(s.EligSrc);
-        // Portal dashboard (CO): guardians reference the SEBT application id, not the CBMS
-        // internal case id. Use SebtAppId for display on application-based rows; streamline /
-        // auto-issued children keep the CBMS case id when present.
-        var displayCaseReferenceId = isApplicationBased
-            ? s.SebtAppId?.ToString() ?? s.CbmsCsId
-            : s.CbmsCsId;
+        var cbmsCaseId = s.CbmsCsId;
+        // Guardian-facing reference (dashboard): application id when application-based; otherwise CBMS case id.
+        var displayReferenceId = isApplicationBased
+            ? s.SebtAppId?.ToString() ?? cbmsCaseId
+            : cbmsCaseId;
 
         return new SummerEbtCase
         {
@@ -88,7 +87,8 @@ internal static class CbmsResponseMapper
             IssuanceType = IssuanceType.SummerEbt,
             ApplicationStatus = MapCaseStatus(s.StdntEligSts),
             MailingAddress = piiVisibility.IncludeAddress ? MapAddress(s) : null,
-            EbtCaseNumber = displayCaseReferenceId,
+            EbtCaseNumber = cbmsCaseId,
+            CaseDisplayNumber = displayReferenceId,
             EbtCardLastFour = s.EbtCardLastFour,
             EbtCardStatus = MapCardStatus(s.EbtCardSts, logger).ToString(),
             EbtCardIssueDate = ParseDateOnly(s.CardIssDt),
