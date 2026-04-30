@@ -111,7 +111,7 @@ public class CbmsResponseMapperTests
     }
 
     [Fact]
-    public void MapToHouseholdData_streamline_case_uses_cbms_case_id_for_display_reference()
+    public void MapToHouseholdData_streamline_case_uses_cbms_case_id_when_sebt_app_id_absent()
     {
         var student = CreateMinimalStudent();
         student.EligSrc = "DIRC";
@@ -129,6 +129,28 @@ public class CbmsResponseMapperTests
         Assert.Equal("CBMS-CS-ONLY", @case.EbtCaseNumber);
         Assert.Equal("CBMS-CS-ONLY", @case.CaseDisplayNumber);
         Assert.Null(@case.ApplicationId);
+    }
+
+    [Fact]
+    public void MapToHouseholdData_streamline_case_prefers_sebt_app_id_for_case_display_when_present()
+    {
+        var student = CreateMinimalStudent();
+        student.EligSrc = "DIRC";
+        student.SebtAppId = 7777;
+        student.CbmsCsId = "STREAMLINE-CBMS";
+        var response = new GetAccountDetailsResponse
+        {
+            StdntEnrollDtls = new List<GetAccountStudentDetail> { student }
+        };
+        var piiVisibility = new PiiVisibility(IncludeAddress: false, IncludeEmail: false, IncludePhone: false);
+
+        var result = CbmsResponseMapper.MapToHouseholdData(response, "8185551234", piiVisibility);
+
+        var @case = Assert.Single(result.SummerEbtCases);
+        Assert.Equal("STREAMLINE-CBMS", @case.EbtCaseNumber);
+        Assert.Equal("7777", @case.CaseDisplayNumber);
+        Assert.Null(@case.ApplicationId);
+        Assert.True(@case.IsStreamlineCertified);
     }
 
     [Fact]
@@ -443,6 +465,7 @@ public class CbmsResponseMapperTests
         Assert.Null(caseRecord.ApplicationId);
         Assert.Null(caseRecord.ApplicationStudentId);
         Assert.Equal("7009001", caseRecord.SummerEBTCaseID);
+        Assert.Equal("5001", caseRecord.CaseDisplayNumber);
     }
 
     [Fact]

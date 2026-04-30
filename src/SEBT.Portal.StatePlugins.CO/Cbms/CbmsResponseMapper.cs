@@ -67,10 +67,8 @@ internal static class CbmsResponseMapper
     {
         var isApplicationBased = EligibilitySourceClassifier.IsApplicationBased(s.EligSrc);
         var cbmsCaseId = s.CbmsCsId;
-        // Guardian-facing reference (dashboard): application id when application-based; otherwise CBMS case id.
-        var displayReferenceId = isApplicationBased
-            ? s.SebtAppId?.ToString() ?? cbmsCaseId
-            : cbmsCaseId;
+        // Guardian-facing reference: CO shows sebtAppId whenever present (any eligibility origin); otherwise CBMS case id.
+        var displayReferenceId = s.SebtAppId?.ToString() ?? cbmsCaseId;
 
         return new SummerEbtCase
         {
