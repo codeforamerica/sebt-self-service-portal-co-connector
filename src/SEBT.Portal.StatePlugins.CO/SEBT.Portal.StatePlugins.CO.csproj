@@ -32,6 +32,8 @@
         <PackageReference Include="System.Composition" Version="10.0.1" />
         <PackageReference Include="SEBT.Portal.StatesPlugins.Interfaces" Version="0.0.2-*" Condition="!Exists('$(StateConnectorInterfacesProject)')" />
         <InternalsVisibleTo Include="SEBT.Portal.StatePlugins.CO.Tests" />
+        <!-- Required so NSubstitute/Castle.DynamicProxy can create proxies for internal interfaces (e.g. ICbmsHouseholdCache) in tests. -->
+        <InternalsVisibleTo Include="DynamicProxyGenAssembly2" />
     </ItemGroup>
 
     <ItemGroup Condition="Exists('$(StateConnectorInterfacesProject)')">
