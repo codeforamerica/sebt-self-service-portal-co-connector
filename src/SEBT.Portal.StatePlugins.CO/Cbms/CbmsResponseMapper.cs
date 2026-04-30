@@ -65,12 +65,17 @@ internal static class CbmsResponseMapper
 
     private static SummerEbtCase MapToSummerEbtCase(GetAccountStudentDetail s, PiiVisibility piiVisibility, ILogger? logger)
     {
+        var isApplicationBased = EligibilitySourceClassifier.IsApplicationBased(s.EligSrc);
+        var cbmsCaseId = s.CbmsCsId;
+        // Guardian-facing reference: CO shows sebtAppId whenever present (any eligibility origin); otherwise CBMS case id.
+        var displayReferenceId = s.SebtAppId?.ToString() ?? cbmsCaseId;
+
         return new SummerEbtCase
         {
             SummerEBTCaseID = s.SebtChldCwin?.ToString(),
-            ApplicationId = EligibilitySourceClassifier.IsApplicationBased(s.EligSrc)
+            ApplicationId = isApplicationBased
                 ? s.SebtAppId?.ToString() : null,
-            ApplicationStudentId = EligibilitySourceClassifier.IsApplicationBased(s.EligSrc)
+            ApplicationStudentId = isApplicationBased
                 ? s.SebtChldId?.ToString() : null,
             ChildFirstName = s.StdFstNm ?? string.Empty,
             ChildLastName = s.StdLstNm ?? string.Empty,
@@ -80,14 +85,15 @@ internal static class CbmsResponseMapper
             IssuanceType = IssuanceType.SummerEbt,
             ApplicationStatus = MapCaseStatus(s.StdntEligSts),
             MailingAddress = piiVisibility.IncludeAddress ? MapAddress(s) : null,
-            EbtCaseNumber = s.CbmsCsId,
+            EbtCaseNumber = cbmsCaseId,
+            CaseDisplayNumber = displayReferenceId,
             EbtCardLastFour = s.EbtCardLastFour,
             EbtCardStatus = MapCardStatus(s.EbtCardSts, logger).ToString(),
             EbtCardIssueDate = ParseDateOnly(s.CardIssDt),
             EbtCardBalance = s.CardBal.HasValue ? (decimal)s.CardBal.Value : null,
             BenefitAvailableDate = ParseDateOnly(s.BenAvalDt),
             BenefitExpirationDate = ParseDateOnly(s.BenExpDt),
-            IsStreamlineCertified = !EligibilitySourceClassifier.IsApplicationBased(s.EligSrc),
+            IsStreamlineCertified = !isApplicationBased,
         };
     }
 
@@ -123,9 +129,11 @@ internal static class CbmsResponseMapper
         return applicationRows.Select(g =>
         {
             var first = g.First();
+            var sebtAppIdText = first.SebtAppId!.Value.ToString();
             return new Application
             {
-                ApplicationNumber = first.SebtAppId.ToString(),
+                ApplicationNumber = sebtAppIdText,
+                CaseNumber = sebtAppIdText,
                 ApplicationStatus = MapApplicationStatus(first.SebtAppSts),
                 IssuanceType = IssuanceType.SummerEbt,
                 Children = g.Select(c => new Child
