@@ -12,8 +12,12 @@ internal sealed class CbmsHouseholdCacheOptions
     /// one pod is not visible to other pods' L1 caches — after this elapses, other pods
     /// fall through to L2 (Redis) and pick up the fresh value. Should be shorter than
     /// <see cref="SoftExpirationMinutes"/> so SWR semantics still apply on warm L1 entries.
+    /// Default is 1 second — effectively bypassing L1 — because the deployed environment
+    /// does not use sticky sessions, so any user request can land on any pod and we
+    /// cannot rely on a writing pod's L1 being read by the same user. Increase this if
+    /// sticky sessions are introduced or if Redis read load becomes a concern.
     /// </summary>
-    public int LocalCacheExpirationSeconds { get; set; } = 60;
+    public int LocalCacheExpirationSeconds { get; set; } = 1;
 
     public TimeSpan SoftExpiration => TimeSpan.FromMinutes(SoftExpirationMinutes);
     public TimeSpan HardExpiration => TimeSpan.FromMinutes(HardExpirationMinutes);

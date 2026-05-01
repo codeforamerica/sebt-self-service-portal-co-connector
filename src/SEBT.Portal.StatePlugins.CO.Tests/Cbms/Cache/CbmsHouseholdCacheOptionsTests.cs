@@ -14,7 +14,7 @@ public class CbmsHouseholdCacheOptionsTests
         Assert.Equal(240, sut.HardExpirationMinutes);
         Assert.Equal(60, sut.NegativeCacheSeconds);
         Assert.Equal(60, sut.BackgroundRefreshTimeoutSeconds);
-        Assert.Equal(60, sut.LocalCacheExpirationSeconds);
+        Assert.Equal(1, sut.LocalCacheExpirationSeconds);
     }
 
     [Fact]
