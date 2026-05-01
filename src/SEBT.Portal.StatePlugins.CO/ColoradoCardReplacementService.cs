@@ -119,12 +119,16 @@ public class ColoradoCardReplacementService : ColoradoCbmsServiceBase, ICardRepl
         }
         catch (ErrorResponse ex)
         {
-            _logger.LogWarning("CBMS CardReplacement: get-account-details (cache) failed with StatusCode={StatusCode}", ex.ResponseStatusCode);
+            _logger.LogError(ex,
+                "{Dependency} CardReplacement: get-account-details (cache) failed with StatusCode={StatusCode}",
+                "CBMS", ex.ResponseStatusCode);
             return MapErrorResponse(ex);
         }
         catch (ApiException ex)
         {
-            _logger.LogWarning("CBMS CardReplacement: get-account-details (cache) failed with HTTP {StatusCode}", ex.ResponseStatusCode);
+            _logger.LogError(ex,
+                "{Dependency} CardReplacement: get-account-details (cache) failed with HTTP {StatusCode}",
+                "CBMS", ex.ResponseStatusCode);
             return BackendErrorFromApiException(ex);
         }
 
@@ -191,12 +195,16 @@ public class ColoradoCardReplacementService : ColoradoCbmsServiceBase, ICardRepl
         }
         catch (ErrorResponse ex)
         {
-            _logger.LogWarning("CBMS CardReplacement: update-std-dtls failed with StatusCode={StatusCode}", ex.ResponseStatusCode);
+            _logger.LogError(ex,
+                "{Dependency} CardReplacement: update-std-dtls failed with StatusCode={StatusCode}",
+                "CBMS", ex.ResponseStatusCode);
             return MapErrorResponse(ex);
         }
         catch (ApiException ex)
         {
-            _logger.LogWarning("CBMS CardReplacement: update-std-dtls failed with HTTP {StatusCode}", ex.ResponseStatusCode);
+            _logger.LogError(ex,
+                "{Dependency} CardReplacement: update-std-dtls failed with HTTP {StatusCode}",
+                "CBMS", ex.ResponseStatusCode);
             return BackendErrorFromApiException(ex);
         }
     }
