@@ -1,5 +1,5 @@
 using System.Composition;
-using System.Diagnostics;
+using Microsoft.Extensions.Caching.Hybrid;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -19,31 +19,49 @@ namespace SEBT.Portal.StatePlugins.CO;
 /// When multiple children are on the account, CBMS receives one PATCH whose body is an array of update payloads
 /// (same portal address mapped per student row from get-account-details).
 /// Successful updates require CBMS <c>respCd</c> <c>200</c> (OpenAPI example) or <c>00</c> (observed UAT); other codes are failure.
+/// After a successful PATCH the cached household response is updated in-memory and written through to the cache
+/// so that subsequent reads reflect the change without a round-trip to CBMS.
 /// </summary>
 [Export(typeof(IAddressUpdateService))]
 [Export(typeof(IStatePlugin))]
 [ExportMetadata("StateCode", "CO")]
-public class ColoradoAddressUpdateService : IAddressUpdateService
+public class ColoradoAddressUpdateService : ColoradoCbmsServiceBase, IAddressUpdateService
 {
     private readonly IConfiguration? _configuration;
     private readonly ILogger _logger;
-    private readonly HttpMessageHandler? _testHttpMessageHandler;
 
-    private CbmsConnectionOptions? _cachedOptions;
-    private CbmsSebtApiClient? _cachedClient;
-    private readonly object _clientCacheLock = new();
+    // Only non-null when constructed via the internal test ctor. Allows tests to inject
+    // a fake HttpMessageHandler for the PATCH path while the read path is served by
+    // the PluginCache substitute set via PluginCache.OverrideForTesting.
+    private readonly HttpMessageHandler? _testHttpMessageHandler;
 
     [ImportingConstructor]
     public ColoradoAddressUpdateService(
+        [Import] IServiceProvider hostProvider,
         [Import(AllowDefault = true)] IConfiguration? configuration = null,
-        [Import(AllowDefault = true)] ILoggerFactory? loggerFactory = null)
+        [Import(AllowDefault = true)] ILoggerFactory? loggerFactory = null,
+        HybridCache? cache = null)
+        : base(
+            hostProvider,
+            configuration ?? throw new InvalidOperationException("IConfiguration required."),
+            cache,
+            loggerFactory?.CreateLogger<ColoradoAddressUpdateService>() ?? NullLogger<ColoradoAddressUpdateService>.Instance)
     {
         _configuration = configuration;
         _logger = loggerFactory?.CreateLogger<ColoradoAddressUpdateService>() ?? NullLogger<ColoradoAddressUpdateService>.Instance;
-        _testHttpMessageHandler = null;
     }
 
-    internal ColoradoAddressUpdateService(IConfiguration? configuration, HttpMessageHandler? testHttpMessageHandler, ILogger? logger = null)
+    internal ColoradoAddressUpdateService(
+        IServiceProvider hostProvider,
+        IConfiguration? configuration,
+        HttpMessageHandler? testHttpMessageHandler,
+        HybridCache? cache = null,
+        ILogger? logger = null)
+        : base(
+            hostProvider,
+            configuration ?? throw new InvalidOperationException("IConfiguration required."),
+            cache,
+            logger ?? NullLogger<ColoradoAddressUpdateService>.Instance)
     {
         _configuration = configuration;
         _testHttpMessageHandler = testHttpMessageHandler;
@@ -97,33 +115,31 @@ public class ColoradoAddressUpdateService : IAddressUpdateService
                 "CBMS endpoint URLs are not configured. Set Cbms:ApiBaseUrl and Cbms:TokenEndpointUrl (or Cbms__* env vars).");
         }
 
-        var client = GetOrCreateClient(options);
-
         GetAccountDetailsResponse? accountResponse;
         try
         {
-            _logger.LogInformation("CBMS AddressUpdate: fetching account details (POST /sebt/get-account-details)");
-            var sw = Stopwatch.StartNew();
-            accountResponse = await client.Sebt.GetAccountDetails.PostAsync(
-                new GetAccountDetailsRequest { PhnNm = phone10 },
-                cancellationToken: cancellationToken);
-            sw.Stop();
-            _logger.LogInformation(
-                "CBMS AddressUpdate: get-account-details completed in {ElapsedMs}ms, {RowCount} enrollment row(s)",
-                sw.ElapsedMilliseconds, accountResponse?.StdntEnrollDtls?.Count ?? 0);
+            accountResponse = await HouseholdCache!.GetAsync(phone10, cancellationToken).ConfigureAwait(false);
         }
         catch (ErrorResponse ex)
         {
-            _logger.LogWarning("CBMS AddressUpdate: get-account-details failed with StatusCode={StatusCode}", ex.ResponseStatusCode);
+            _logger.LogWarning("CBMS AddressUpdate: get-account-details (cache) failed with StatusCode={StatusCode}", ex.ResponseStatusCode);
             return MapErrorResponse(ex);
         }
         catch (ApiException ex)
         {
-            _logger.LogWarning("CBMS AddressUpdate: get-account-details failed with HTTP {StatusCode}", ex.ResponseStatusCode);
+            _logger.LogWarning("CBMS AddressUpdate: get-account-details (cache) failed with HTTP {StatusCode}", ex.ResponseStatusCode);
             return BackendErrorFromApiException(ex);
         }
 
-        var students = accountResponse?.StdntEnrollDtls ?? [];
+        if (accountResponse is null)
+        {
+            return AddressUpdateResult.PolicyRejected(
+                "HOUSEHOLD_NOT_FOUND",
+                "CBMS get-account-details returned no enrollment rows for the household identifier used for lookup. " +
+                "Confirm this environment (UAT vs production) and that the guardian phone on the SEBT account matches lookup normalization, same as household by phone.");
+        }
+
+        var students = accountResponse.StdntEnrollDtls ?? [];
         var actionable = students
             .Select(row => (Row: row, Ids: CbmsGetAccountStudentDetailIds.Resolve(row)))
             .Where(x => CbmsGetAccountStudentDetailIds.CanBuildUpdatePayload(x.Ids))
@@ -145,6 +161,8 @@ public class ColoradoAddressUpdateService : IAddressUpdateService
                 CbmsGetAccountStudentDetailIds.FormatDiagnosticsHint(students[0]));
         }
 
+        var client = GetOrCreateClient(options);
+
         var updateBodies = actionable
             .Select(x => CbmsAddressUpdateMapper.ToUpdateStudentDetailsRequest(
                 request.Address,
@@ -158,15 +176,20 @@ public class ColoradoAddressUpdateService : IAddressUpdateService
             _logger.LogInformation(
                 "CBMS AddressUpdate: updating {StudentCount} student(s) (PATCH /sebt/update-std-dtls)",
                 updateBodies.Count);
-            var patchSw = Stopwatch.StartNew();
             var updateResponse = await client.Sebt.UpdateStdDtls.PatchAsync(updateBodies, cancellationToken: cancellationToken);
-            patchSw.Stop();
             _logger.LogInformation(
-                "CBMS AddressUpdate: update-std-dtls completed in {ElapsedMs}ms, respCd={RespCd}",
-                patchSw.ElapsedMilliseconds, updateResponse?.RespCd ?? "(null)");
+                "CBMS AddressUpdate: update-std-dtls completed, respCd={RespCd}",
+                updateResponse?.RespCd ?? "(null)");
 
             if (updateResponse != null && IsCbmsUpdateSuccessCode(updateResponse.RespCd))
             {
+                // Write-through: update the cached response so subsequent reads reflect the change.
+                foreach (var (row, _) in actionable)
+                {
+                    CbmsAddressUpdateMapper.ApplyAddressToRow(request.Address, row);
+                }
+                await HouseholdCache!.SetAsync(phone10, accountResponse, cancellationToken).ConfigureAwait(false);
+
                 return AddressUpdateResult.Success();
             }
 
@@ -185,23 +208,25 @@ public class ColoradoAddressUpdateService : IAddressUpdateService
         }
     }
 
-    private CbmsSebtApiClient GetOrCreateClient(CbmsConnectionOptions options)
+    /// <summary>
+    /// Overrides the base <see cref="ColoradoCbmsServiceBase.GetOrCreateClient"/> when a test HTTP handler
+    /// has been injected via the internal constructor. This preserves the test seam for the PATCH path
+    /// while the read path is served by the <see cref="PluginCache"/> substitute.
+    /// In production (where <see cref="_testHttpMessageHandler"/> is null) the base implementation is used.
+    /// </summary>
+    protected new CbmsSebtApiClient GetOrCreateClient(CbmsConnectionOptions options)
     {
-        lock (_clientCacheLock)
-        {
-            if (_cachedOptions == options && _cachedClient != null)
-                return _cachedClient;
+        if (_testHttpMessageHandler is null)
+            return base.GetOrCreateClient(options);
 
-            _cachedClient = CbmsSebtApiClientFactory.Create(
-                options.ClientId,
-                options.ClientSecret,
-                options.ApiBaseUrl,
-                options.TokenEndpointUrl,
-                _testHttpMessageHandler,
-                _logger);
-            _cachedOptions = options;
-            return _cachedClient;
-        }
+        // Test path: build a client with the injected handler each time (no caching needed in tests).
+        return CbmsSebtApiClientFactory.Create(
+            options.ClientId,
+            options.ClientSecret,
+            options.ApiBaseUrl,
+            options.TokenEndpointUrl,
+            _testHttpMessageHandler,
+            _logger);
     }
 
     /// <summary>Kiota uses the HTTP reason phrase (e.g. "Bad Request") as <see cref="ApiException.Message"/> — include status for clarity.</summary>

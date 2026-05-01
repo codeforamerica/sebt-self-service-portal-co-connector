@@ -1,16 +1,53 @@
 using Microsoft.Extensions.Caching.Hybrid;
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging.Abstractions;
+using NSubstitute;
 using SEBT.Portal.StatePlugins.CO;
-using SEBT.Portal.StatePlugins.CO.CbmsApi;
+using SEBT.Portal.StatePlugins.CO.Cbms.Cache;
+using SEBT.Portal.StatePlugins.CO.CbmsApi.Models;
 using SEBT.Portal.StatesPlugins.Interfaces.Models;
 using SEBT.Portal.StatesPlugins.Interfaces.Models.Household;
+using SEBT.Portal.StatesPlugins.Interfaces.Services;
 
 namespace SEBT.Portal.StatePlugins.CO.Tests;
 
-public class ColoradoSummerEbtCaseServiceTests
+[Collection("PluginCache")]
+public class ColoradoSummerEbtCaseServiceTests : IDisposable
 {
+    public ColoradoSummerEbtCaseServiceTests() => PluginCache.ResetForTesting();
+    public void Dispose() => PluginCache.ResetForTesting();
+
+    // ---------------------------------------------------------------------------
+    // Helpers
+    // ---------------------------------------------------------------------------
+
+    /// <summary>
+    /// Installs a no-op cache substitute so that tests which don't need a real
+    /// CBMS backend can construct the service without triggering PluginCache.GetOrBuild's
+    /// client-credential validation.
+    /// </summary>
+    private static void UseNoOpCache()
+    {
+        var noOp = Substitute.For<ICbmsHouseholdCache>();
+        PluginCache.OverrideForTesting(noOp);
+    }
+
+    private static IServiceProvider BuildHostProvider()
+    {
+        var services = new ServiceCollection();
+        services.AddLogging();
+        services.AddMemoryCache();
+        services.AddHybridCache();
+        services.AddSingleton<IHostApplicationLifetime>(_ => Substitute.For<IHostApplicationLifetime>());
+        var hasher = Substitute.For<IHMACSHA256Hasher>();
+        hasher.Hash(Arg.Any<string>()).Returns(c => "h:" + c.Arg<string>());
+        services.AddSingleton(hasher);
+        return services.BuildServiceProvider();
+    }
+
     private static IConfiguration CreateEmptyConfiguration()
     {
         return new ConfigurationBuilder()
@@ -33,6 +70,20 @@ public class ColoradoSummerEbtCaseServiceTests
             .Build();
     }
 
+    private static IConfiguration CreateMockCbmsConfigurationWithCache()
+    {
+        return new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["Cbms:ClientId"] = "test-id",
+                ["Cbms:ClientSecret"] = "test-secret",
+                ["Cbms:UseMockResponses"] = "true",
+                ["Cbms:Cache:SoftExpirationMinutes"] = "5",
+                ["Cbms:Cache:HardExpirationMinutes"] = "60",
+            })
+            .Build();
+    }
+
     private static HybridCache CreateInMemoryHybridCache()
     {
         var services = new ServiceCollection();
@@ -41,10 +92,15 @@ public class ColoradoSummerEbtCaseServiceTests
         return provider.GetRequiredService<HybridCache>();
     }
 
+    // ---------------------------------------------------------------------------
+    // Tests
+    // ---------------------------------------------------------------------------
+
     [Fact]
     public async Task GetHouseholdByGuardianEmailAsync_returns_null_CBMS_has_no_email_lookup()
     {
-        var service = new ColoradoSummerEbtCaseService(CreateEmptyConfiguration(), NullLoggerFactory.Instance);
+        UseNoOpCache();
+        var service = new ColoradoSummerEbtCaseService(BuildHostProvider(), CreateEmptyConfiguration(), NullLoggerFactory.Instance);
         var piiVisibility = new PiiVisibility(IncludeAddress: false, IncludeEmail: false, IncludePhone: false);
 
         var result = await service.GetHouseholdByGuardianEmailAsync(
@@ -56,7 +112,8 @@ public class ColoradoSummerEbtCaseServiceTests
     [Fact]
     public async Task GetHouseholdByIdentifierAsync_returns_null_for_unsupported_identifier_type()
     {
-        var service = new ColoradoSummerEbtCaseService(CreateEmptyConfiguration(), NullLoggerFactory.Instance);
+        UseNoOpCache();
+        var service = new ColoradoSummerEbtCaseService(BuildHostProvider(), CreateEmptyConfiguration(), NullLoggerFactory.Instance);
         var piiVisibility = new PiiVisibility(IncludeAddress: false, IncludeEmail: false, IncludePhone: false);
 
         var result = await service.GetHouseholdByIdentifierAsync(
@@ -71,7 +128,8 @@ public class ColoradoSummerEbtCaseServiceTests
     [Fact]
     public async Task GetHouseholdByIdentifierAsync_with_Phone_returns_null_when_Cbms_not_configured()
     {
-        var service = new ColoradoSummerEbtCaseService(CreateEmptyConfiguration(), NullLoggerFactory.Instance);
+        UseNoOpCache();
+        var service = new ColoradoSummerEbtCaseService(BuildHostProvider(), CreateEmptyConfiguration(), NullLoggerFactory.Instance);
         var piiVisibility = new PiiVisibility(IncludeAddress: false, IncludeEmail: false, IncludePhone: false);
 
         var result = await service.GetHouseholdByIdentifierAsync(
@@ -86,9 +144,10 @@ public class ColoradoSummerEbtCaseServiceTests
     [Fact]
     public async Task GetHouseholdByIdentifierAsync_with_Phone_returns_household_when_UseMockResponses_and_valid_phone()
     {
+        var config = CreateMockCbmsConfigurationWithCache();
+        var hostProvider = BuildHostProvider();
         var cache = CreateInMemoryHybridCache();
-        var service = new ColoradoSummerEbtCaseService(
-            CreateCbmsConfiguration(useMockResponses: true), NullLoggerFactory.Instance, cache);
+        var service = new ColoradoSummerEbtCaseService(hostProvider, config, NullLoggerFactory.Instance, cache);
         var piiVisibility = new PiiVisibility(IncludeAddress: true, IncludeEmail: true, IncludePhone: true);
 
         var result = await service.GetHouseholdByIdentifierAsync(
@@ -104,9 +163,10 @@ public class ColoradoSummerEbtCaseServiceTests
     [Fact]
     public async Task GetHouseholdByIdentifierAsync_with_Phone_returns_null_for_unknown_phone_in_mock_mode()
     {
+        var config = CreateMockCbmsConfigurationWithCache();
+        var hostProvider = BuildHostProvider();
         var cache = CreateInMemoryHybridCache();
-        var service = new ColoradoSummerEbtCaseService(
-            CreateCbmsConfiguration(useMockResponses: true), NullLoggerFactory.Instance, cache);
+        var service = new ColoradoSummerEbtCaseService(hostProvider, config, NullLoggerFactory.Instance, cache);
         var piiVisibility = new PiiVisibility(IncludeAddress: false, IncludeEmail: false, IncludePhone: false);
 
         var result = await service.GetHouseholdByIdentifierAsync(
@@ -126,7 +186,8 @@ public class ColoradoSummerEbtCaseServiceTests
     [InlineData("12345")]
     public async Task GetHouseholdByIdentifierAsync_with_Phone_returns_null_when_invalid_phone(string? phone)
     {
-        var service = new ColoradoSummerEbtCaseService(CreateCbmsConfiguration(), NullLoggerFactory.Instance);
+        UseNoOpCache();
+        var service = new ColoradoSummerEbtCaseService(BuildHostProvider(), CreateCbmsConfiguration(), NullLoggerFactory.Instance);
         var piiVisibility = new PiiVisibility(IncludeAddress: false, IncludeEmail: false, IncludePhone: false);
 
         var result = await service.GetHouseholdByIdentifierAsync(
@@ -136,5 +197,36 @@ public class ColoradoSummerEbtCaseServiceTests
             IdentityAssuranceLevel.None);
 
         Assert.Null(result);
+    }
+
+    [Fact]
+    public async Task GetHouseholdByIdentifierAsync_with_Phone_routes_through_household_cache()
+    {
+        // Arrange: inject a fake cache via PluginCache.OverrideForTesting
+        var fakeCache = Substitute.For<ICbmsHouseholdCache>();
+        fakeCache.GetAsync("3035550199", Arg.Any<CancellationToken>())
+            .Returns(new GetAccountDetailsResponse
+            {
+                StdntEnrollDtls = new List<GetAccountStudentDetail>
+                {
+                    new GetAccountStudentDetail()
+                }
+            });
+        PluginCache.OverrideForTesting(fakeCache);
+
+        var config = CreateCbmsConfiguration(clientId: "test-id", clientSecret: "test-secret");
+        var service = new ColoradoSummerEbtCaseService(BuildHostProvider(), config, NullLoggerFactory.Instance);
+        var piiVisibility = new PiiVisibility(IncludeAddress: false, IncludeEmail: false, IncludePhone: false);
+
+        // Act
+        var result = await service.GetHouseholdByIdentifierAsync(
+            HouseholdIdentifierType.Phone,
+            "303-555-0199",
+            piiVisibility,
+            IdentityAssuranceLevel.IAL2,
+            CancellationToken.None);
+
+        // Assert: the fake cache was called with the normalized phone
+        await fakeCache.Received(1).GetAsync("3035550199", Arg.Any<CancellationToken>());
     }
 }

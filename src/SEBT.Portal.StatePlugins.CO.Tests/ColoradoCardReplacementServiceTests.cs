@@ -1,22 +1,155 @@
 using System.Net;
 using System.Text;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using NSubstitute;
+using SEBT.Portal.StatePlugins.CO.Cbms.Cache;
+using SEBT.Portal.StatePlugins.CO.CbmsApi.Models;
 using SEBT.Portal.StatesPlugins.Interfaces.Models.Household;
 
 namespace SEBT.Portal.StatePlugins.CO.Tests;
 
-public class ColoradoCardReplacementServiceTests
+[Collection("PluginCache")]
+public class ColoradoCardReplacementServiceTests : IDisposable
 {
+    public ColoradoCardReplacementServiceTests() => PluginCache.ResetForTesting();
+    public void Dispose() => PluginCache.ResetForTesting();
+
+    // ---------------------------------------------------------------------------
+    // Helpers
+    // ---------------------------------------------------------------------------
+
+    private static IServiceProvider BuildMinimalHostProvider()
+    {
+        // A minimal provider is sufficient for these tests because PluginCache.OverrideForTesting
+        // is always called before construction, so PluginCache.GetOrBuild short-circuits and
+        // never actually uses the provider.
+        var services = new ServiceCollection();
+        services.AddLogging();
+        return services.BuildServiceProvider();
+    }
+
+    /// <summary>
+    /// Builds a card-replacement service with a fake cache that returns the account details
+    /// produced by <paramref name="accountDetailsJson"/> and a fake HTTP handler for the PATCH leg.
+    /// </summary>
+    private static ColoradoCardReplacementService BuildService(
+        CardReplacementPipelineMessageHandler handler,
+        ICbmsHouseholdCache? fakeCache = null,
+        IConfiguration? configuration = null)
+    {
+        fakeCache ??= BuildCacheReturning(handler.AccountDetailsJson);
+        PluginCache.OverrideForTesting(fakeCache);
+
+        return new ColoradoCardReplacementService(
+            BuildMinimalHostProvider(),
+            configuration ?? CbmsTestConfiguration(),
+            handler);
+    }
+
+    /// <summary>
+    /// Returns a cache substitute whose <c>GetAsync</c> deserializes <paramref name="accountDetailsJson"/>
+    /// into a <see cref="GetAccountDetailsResponse"/> and returns it.
+    /// </summary>
+    private static ICbmsHouseholdCache BuildCacheReturning(string accountDetailsJson)
+    {
+        var fakeCache = Substitute.For<ICbmsHouseholdCache>();
+        var response = DeserializeAccountDetails(accountDetailsJson);
+        fakeCache.GetAsync(Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(response);
+        return fakeCache;
+    }
+
+    /// <summary>
+    /// Builds an <see cref="ICbmsHouseholdCache"/> substitute that returns a
+    /// <see cref="GetAccountDetailsResponse"/> containing a single student row whose
+    /// <c>sebtChldCwin</c> matches <paramref name="cwin"/>, with <c>sebtChldId=1</c> and <c>sebtAppId=2</c>.
+    /// </summary>
+    private static ICbmsHouseholdCache BuildCacheWithMatchingCwin(string cwin)
+    {
+        var fakeCache = Substitute.For<ICbmsHouseholdCache>();
+        fakeCache.GetAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(BuildAccountDetailsWithMatchingCwin(cwin));
+        return fakeCache;
+    }
+
+    private static GetAccountDetailsResponse BuildAccountDetailsWithMatchingCwin(string cwin)
+    {
+        var row = new GetAccountStudentDetail
+        {
+            SebtChldId = 1,
+            SebtAppId = 2
+        };
+        // SebtChldCwin is int? in the generated model.
+        if (int.TryParse(cwin, out var cwinInt))
+            row.SebtChldCwin = cwinInt;
+
+        return new GetAccountDetailsResponse
+        {
+            StdntEnrollDtls = [row]
+        };
+    }
+
+    /// <summary>
+    /// Minimal deserializer for test JSON: parses the stdntEnrollDtls array from a simple JSON
+    /// object. Uses System.Text.Json for correctness.
+    /// </summary>
+    private static GetAccountDetailsResponse DeserializeAccountDetails(string json)
+    {
+        using var doc = System.Text.Json.JsonDocument.Parse(json);
+        var root = doc.RootElement;
+
+        var response = new GetAccountDetailsResponse();
+        if (root.TryGetProperty("stdntEnrollDtls", out var dtlsElement) && dtlsElement.ValueKind == System.Text.Json.JsonValueKind.Array)
+        {
+            response.StdntEnrollDtls = [];
+            foreach (var element in dtlsElement.EnumerateArray())
+            {
+                var row = new GetAccountStudentDetail();
+                if (element.TryGetProperty("sebtChldCwin", out var cwin) && cwin.TryGetInt32(out var cwinVal))
+                    row.SebtChldCwin = cwinVal;
+                if (element.TryGetProperty("sebtChldId", out var chldId) && chldId.TryGetInt32(out var chldIdVal))
+                    row.SebtChldId = chldIdVal;
+                if (element.TryGetProperty("sebtAppId", out var appId) && appId.TryGetInt32(out var appIdVal))
+                    row.SebtAppId = appIdVal;
+                response.StdntEnrollDtls.Add(row);
+            }
+        }
+        else
+        {
+            response.StdntEnrollDtls = [];
+        }
+
+        return response;
+    }
+
+    private static IConfiguration CbmsTestConfiguration() =>
+        new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["Cbms:ClientId"] = "id",
+                ["Cbms:ClientSecret"] = "secret",
+                ["Cbms:ApiBaseUrl"] = "https://cbms-api.test/",
+                ["Cbms:TokenEndpointUrl"] = "https://cbms-auth.test/token"
+            })
+            .Build();
+
+    private static string SingleCwinEnrollmentJson(string cwin, int chldId, int appId) =>
+        $$"""{"stdntEnrollDtls":[{"sebtChldCwin":{{cwin}},"sebtChldId":{{chldId}},"sebtAppId":{{appId}}}]}""";
+
+    // ---------------------------------------------------------------------------
+    // Tests
+    // ---------------------------------------------------------------------------
+
     [Theory]
     [InlineData("""{"respCd":"200","respMsg":"Success"}""")]
     [InlineData("""{"respCd":"00","respMsg":"Success"}""")]
     public async Task RequestCardReplacementAsync_returns_success_when_cbms_succeeds(string patchResponseJson)
     {
         var handler = new CardReplacementPipelineMessageHandler(
-            accountDetailsJson: SingleCwinEnrollmentJson(cwin: "8912650", chldId: 1, appId: 2),
-            patchResponseJson: patchResponseJson);
+            patchResponseJson: patchResponseJson,
+            accountDetailsJson: SingleCwinEnrollmentJson(cwin: "8912650", chldId: 1, appId: 2));
 
-        var service = new ColoradoCardReplacementService(CbmsTestConfiguration(), handler);
+        var service = BuildService(handler);
 
         var result = await service.RequestCardReplacementAsync(new CardReplacementRequest
         {
@@ -38,7 +171,7 @@ public class ColoradoCardReplacementServiceTests
         var handler = new CardReplacementPipelineMessageHandler(
             accountDetailsJson: SingleCwinEnrollmentJson(cwin: "8912650", chldId: 1, appId: 2));
 
-        var service = new ColoradoCardReplacementService(CbmsTestConfiguration(), handler);
+        var service = BuildService(handler);
 
         var result = await service.RequestCardReplacementAsync(new CardReplacementRequest
         {
@@ -54,8 +187,12 @@ public class ColoradoCardReplacementServiceTests
     [Fact]
     public async Task RequestCardReplacementAsync_returns_policy_when_identifier_not_phone()
     {
+        var fakeCache = Substitute.For<ICbmsHouseholdCache>();
+        PluginCache.OverrideForTesting(fakeCache);
+
         var service = new ColoradoCardReplacementService(
-            CbmsTestConfiguration(),
+            BuildMinimalHostProvider(),
+            new ConfigurationBuilder().AddInMemoryCollection().Build(),
             new CardReplacementPipelineMessageHandler());
 
         var result = await service.RequestCardReplacementAsync(new CardReplacementRequest
@@ -73,8 +210,12 @@ public class ColoradoCardReplacementServiceTests
     [Fact]
     public async Task RequestCardReplacementAsync_returns_policy_when_identifier_null()
     {
+        var fakeCache = Substitute.For<ICbmsHouseholdCache>();
+        PluginCache.OverrideForTesting(fakeCache);
+
         var service = new ColoradoCardReplacementService(
-            CbmsTestConfiguration(),
+            BuildMinimalHostProvider(),
+            new ConfigurationBuilder().AddInMemoryCollection().Build(),
             new CardReplacementPipelineMessageHandler());
 
         var result = await service.RequestCardReplacementAsync(new CardReplacementRequest
@@ -92,8 +233,12 @@ public class ColoradoCardReplacementServiceTests
     [Fact]
     public async Task RequestCardReplacementAsync_returns_policy_when_case_ids_empty()
     {
+        var fakeCache = Substitute.For<ICbmsHouseholdCache>();
+        PluginCache.OverrideForTesting(fakeCache);
+
         var service = new ColoradoCardReplacementService(
-            CbmsTestConfiguration(),
+            BuildMinimalHostProvider(),
+            new ConfigurationBuilder().AddInMemoryCollection().Build(),
             new CardReplacementPipelineMessageHandler());
 
         var result = await service.RequestCardReplacementAsync(new CardReplacementRequest
@@ -119,7 +264,13 @@ public class ColoradoCardReplacementServiceTests
             })
             .Build();
 
-        var service = new ColoradoCardReplacementService(config, new CardReplacementPipelineMessageHandler());
+        var fakeCache = Substitute.For<ICbmsHouseholdCache>();
+        PluginCache.OverrideForTesting(fakeCache);
+
+        var service = new ColoradoCardReplacementService(
+            BuildMinimalHostProvider(),
+            config,
+            new CardReplacementPipelineMessageHandler());
 
         var result = await service.RequestCardReplacementAsync(new CardReplacementRequest
         {
@@ -139,7 +290,7 @@ public class ColoradoCardReplacementServiceTests
         var handler = new CardReplacementPipelineMessageHandler(
             accountDetailsJson: """{"stdntEnrollDtls":[]}""");
 
-        var service = new ColoradoCardReplacementService(CbmsTestConfiguration(), handler);
+        var service = BuildService(handler);
 
         var result = await service.RequestCardReplacementAsync(new CardReplacementRequest
         {
@@ -159,7 +310,7 @@ public class ColoradoCardReplacementServiceTests
         var handler = new CardReplacementPipelineMessageHandler(
             accountDetailsJson: SingleCwinEnrollmentJson(cwin: "8912650", chldId: 1, appId: 2));
 
-        var service = new ColoradoCardReplacementService(CbmsTestConfiguration(), handler);
+        var service = BuildService(handler);
 
         var result = await service.RequestCardReplacementAsync(new CardReplacementRequest
         {
@@ -180,7 +331,7 @@ public class ColoradoCardReplacementServiceTests
         var handler = new CardReplacementPipelineMessageHandler(
             accountDetailsJson: SingleCwinEnrollmentJson(cwin: "8912650", chldId: 1, appId: 2));
 
-        var service = new ColoradoCardReplacementService(CbmsTestConfiguration(), handler);
+        var service = BuildService(handler);
 
         var result = await service.RequestCardReplacementAsync(new CardReplacementRequest
         {
@@ -206,7 +357,7 @@ public class ColoradoCardReplacementServiceTests
                 ]}
                 """);
 
-        var service = new ColoradoCardReplacementService(CbmsTestConfiguration(), handler);
+        var service = BuildService(handler);
 
         var result = await service.RequestCardReplacementAsync(new CardReplacementRequest
         {
@@ -226,7 +377,7 @@ public class ColoradoCardReplacementServiceTests
         var handler = new CardReplacementPipelineMessageHandler(
             accountDetailsJson: SingleCwinEnrollmentJson(cwin: "8912650", chldId: 1, appId: 2));
 
-        var service = new ColoradoCardReplacementService(CbmsTestConfiguration(), handler);
+        var service = BuildService(handler);
 
         await service.RequestCardReplacementAsync(new CardReplacementRequest
         {
@@ -246,7 +397,7 @@ public class ColoradoCardReplacementServiceTests
             accountDetailsJson: SingleCwinEnrollmentJson(cwin: "8912650", chldId: 1, appId: 2),
             patchResponseJson: """{"respCd":"422","respMsg":"Unprocessable"}""");
 
-        var service = new ColoradoCardReplacementService(CbmsTestConfiguration(), handler);
+        var service = BuildService(handler);
 
         var result = await service.RequestCardReplacementAsync(new CardReplacementRequest
         {
@@ -264,18 +415,25 @@ public class ColoradoCardReplacementServiceTests
     [Fact]
     public async Task RequestCardReplacementAsync_maps_cbms_400_ErrorResponse_to_http_prefixed_message()
     {
-        var handler = new CardReplacementPipelineMessageHandler(
-            accountDetailsStatusCode: HttpStatusCode.BadRequest,
-            accountDetailsJson: """
-                {
-                  "apiName": "cbms-sebt-eapi-impl",
-                  "correlationId": "11174770-a6a1-4949-b216-622e363e872e",
-                  "timestamp": "2026-01-30T16:00:35.143Z",
-                  "errorDetails": [ { "code": "400", "message": "Bad Request" } ]
-                }
-                """);
+        // The cache throws ErrorResponse on CBMS 4xx; verify the error is mapped correctly.
+        var fakeCache = Substitute.For<ICbmsHouseholdCache>();
+        var errorResponse = new ErrorResponse
+        {
+            ErrorDetails =
+            [
+                new ErrorDetail { Code = "400", Message = "Bad Request" }
+            ],
+            CorrelationId = "11174770-a6a1-4949-b216-622e363e872e",
+            ResponseStatusCode = 400
+        };
+        fakeCache.GetAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns<GetAccountDetailsResponse?>(_ => throw errorResponse);
+        PluginCache.OverrideForTesting(fakeCache);
 
-        var service = new ColoradoCardReplacementService(CbmsTestConfiguration(), handler);
+        var service = new ColoradoCardReplacementService(
+            BuildMinimalHostProvider(),
+            CbmsTestConfiguration(),
+            new CardReplacementPipelineMessageHandler());
 
         var result = await service.RequestCardReplacementAsync(new CardReplacementRequest
         {
@@ -295,18 +453,25 @@ public class ColoradoCardReplacementServiceTests
     [Fact]
     public async Task RequestCardReplacementAsync_maps_cbms_404_to_policy_rejection()
     {
-        var handler = new CardReplacementPipelineMessageHandler(
-            accountDetailsStatusCode: HttpStatusCode.NotFound,
-            accountDetailsJson: """
-                {
-                  "apiName": "cbms-sebt-eapi-impl",
-                  "correlationId": "x",
-                  "timestamp": "2026-01-30T16:00:35.143Z",
-                  "errorDetails": [ { "code": "404", "message": "Not Found" } ]
-                }
-                """);
+        // The cache throws ErrorResponse with 404; verify it is mapped to a policy rejection.
+        var fakeCache = Substitute.For<ICbmsHouseholdCache>();
+        var errorResponse = new ErrorResponse
+        {
+            ErrorDetails =
+            [
+                new ErrorDetail { Code = "404", Message = "Not Found" }
+            ],
+            CorrelationId = "x",
+            ResponseStatusCode = 404
+        };
+        fakeCache.GetAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns<GetAccountDetailsResponse?>(_ => throw errorResponse);
+        PluginCache.OverrideForTesting(fakeCache);
 
-        var service = new ColoradoCardReplacementService(CbmsTestConfiguration(), handler);
+        var service = new ColoradoCardReplacementService(
+            BuildMinimalHostProvider(),
+            CbmsTestConfiguration(),
+            new CardReplacementPipelineMessageHandler());
 
         var result = await service.RequestCardReplacementAsync(new CardReplacementRequest
         {
@@ -320,41 +485,87 @@ public class ColoradoCardReplacementServiceTests
         Assert.Equal("CBMS_404", result.ErrorCode);
     }
 
-    private static IConfiguration CbmsTestConfiguration() =>
-        new ConfigurationBuilder()
-            .AddInMemoryCollection(new Dictionary<string, string?>
-            {
-                ["Cbms:ClientId"] = "id",
-                ["Cbms:ClientSecret"] = "secret",
-                ["Cbms:ApiBaseUrl"] = "https://cbms-api.test/",
-                ["Cbms:TokenEndpointUrl"] = "https://cbms-auth.test/token"
-            })
-            .Build();
+    [Fact]
+    public async Task RequestCardReplacementAsync_routes_through_household_cache()
+    {
+        var fakeCache = BuildCacheWithMatchingCwin("12345");
+        PluginCache.OverrideForTesting(fakeCache);
 
-    private static string SingleCwinEnrollmentJson(string cwin, int chldId, int appId) =>
-        $$"""{"stdntEnrollDtls":[{"sebtChldCwin":{{cwin}},"sebtChldId":{{chldId}},"sebtAppId":{{appId}}}]}""";
+        var handler = new CardReplacementPipelineMessageHandler(
+            patchResponseJson: """{"respCd":"00","respMsg":"Success"}""");
+        var service = new ColoradoCardReplacementService(
+            BuildMinimalHostProvider(),
+            CbmsTestConfiguration(),
+            handler);
+
+        var result = await service.RequestCardReplacementAsync(new CardReplacementRequest
+        {
+            HouseholdIdentifierValue = "3035550199",
+            CaseIds = ["12345"],
+            Reason = CardReplacementReason.Unspecified
+        });
+
+        Assert.True(result.IsSuccess);
+        await fakeCache.Received(1).GetAsync(Arg.Any<string>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task RequestCardReplacementAsync_does_not_write_through_or_invalidate()
+    {
+        var fakeCache = BuildCacheWithMatchingCwin("12345");
+        PluginCache.OverrideForTesting(fakeCache);
+
+        var handler = new CardReplacementPipelineMessageHandler(
+            patchResponseJson: """{"respCd":"00","respMsg":"Success"}""");
+        var service = new ColoradoCardReplacementService(
+            BuildMinimalHostProvider(),
+            CbmsTestConfiguration(),
+            handler);
+
+        var result = await service.RequestCardReplacementAsync(new CardReplacementRequest
+        {
+            HouseholdIdentifierValue = "3035550199",
+            CaseIds = ["12345"],
+            Reason = CardReplacementReason.Unspecified
+        });
+
+        Assert.True(result.IsSuccess);
+        await fakeCache.DidNotReceive().SetAsync(Arg.Any<string>(), Arg.Any<GetAccountDetailsResponse>(), Arg.Any<CancellationToken>());
+        await fakeCache.DidNotReceive().InvalidateAsync(Arg.Any<string>(), Arg.Any<CancellationToken>());
+    }
+
+    // ---------------------------------------------------------------------------
+    // Test handler
+    // ---------------------------------------------------------------------------
 
     /// <summary>
-    /// Returns OAuth token, a configurable get-account-details body, and success on PATCH update-std-dtls.
-    /// Captures the PATCH body so tests can assert on its shape.
+    /// Returns OAuth token JSON and a configurable PATCH update-std-dtls response.
+    /// The get-account-details path is NOT handled here — those reads now come from
+    /// the household cache (substituted via PluginCache.OverrideForTesting).
     /// </summary>
     private sealed class CardReplacementPipelineMessageHandler : HttpMessageHandler
     {
-        private readonly HttpStatusCode _accountDetailsStatusCode;
-        private readonly string _accountDetailsJson;
         private readonly string _patchResponseJson;
 
         public bool ReceivedPatch { get; private set; }
         public string LastPatchBodyRaw { get; private set; } = string.Empty;
         public int LastPatchBodyElementCount { get; private set; }
 
+        /// <summary>
+        /// The account-details JSON that was passed at construction; stored so
+        /// <see cref="BuildService"/> can feed the same data to the cache substitute.
+        /// </summary>
+        internal string AccountDetailsJson { get; }
+
         public CardReplacementPipelineMessageHandler(
             string? accountDetailsJson = null,
             string? patchResponseJson = null,
             HttpStatusCode accountDetailsStatusCode = HttpStatusCode.OK)
         {
-            _accountDetailsStatusCode = accountDetailsStatusCode;
-            _accountDetailsJson = accountDetailsJson
+            // accountDetailsStatusCode is no longer used for HTTP interception since reads
+            // come from the cache, but the parameter is kept for call-site compatibility.
+            _ = accountDetailsStatusCode;
+            AccountDetailsJson = accountDetailsJson
                 ?? """{"stdntEnrollDtls":[{"sebtChldCwin":8912650,"sebtChldId":1,"sebtAppId":2}]}""";
             _patchResponseJson = patchResponseJson
                 ?? """{"respCd":"200","respMsg":"Success"}""";
@@ -368,9 +579,6 @@ public class ColoradoCardReplacementServiceTests
                 const string tokenJson = """{"access_token":"test-token","token_type":"Bearer","expires_in":3600}""";
                 return Json(HttpStatusCode.OK, tokenJson);
             }
-
-            if (url.Contains("get-account-details", StringComparison.OrdinalIgnoreCase) && request.Method == HttpMethod.Post)
-                return Json(_accountDetailsStatusCode, _accountDetailsJson);
 
             if (url.Contains("update-std-dtls", StringComparison.OrdinalIgnoreCase) && request.Method == HttpMethod.Patch)
             {

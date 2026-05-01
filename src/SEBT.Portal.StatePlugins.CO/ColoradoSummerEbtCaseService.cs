@@ -1,5 +1,4 @@
 using System.Composition;
-using System.Diagnostics;
 using Microsoft.Extensions.Caching.Hybrid;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
@@ -17,14 +16,16 @@ public class ColoradoSummerEbtCaseService : ColoradoCbmsServiceBase, ISummerEbtC
 {
     private readonly IConfiguration _configuration;
     private readonly ILogger<ColoradoSummerEbtCaseService> _logger;
- 
+
     [ImportingConstructor]
     public ColoradoSummerEbtCaseService(
+        [Import] IServiceProvider hostProvider,
         [Import] IConfiguration configuration,
         [Import] ILoggerFactory loggerFactory,
         HybridCache? cache = null)
-        : base(cache,  loggerFactory.CreateLogger<ColoradoSummerEbtCaseService>())
+        : base(hostProvider, configuration, cache, loggerFactory.CreateLogger<ColoradoSummerEbtCaseService>())
     {
+        ArgumentNullException.ThrowIfNull(hostProvider);
         ArgumentNullException.ThrowIfNull(configuration);
         ArgumentNullException.ThrowIfNull(loggerFactory);
 
@@ -89,41 +90,31 @@ public class ColoradoSummerEbtCaseService : ColoradoCbmsServiceBase, ISummerEbtC
             return null;
         }
 
+        GetAccountDetailsResponse? response;
         try
         {
-            var client = GetOrCreateClient(options);
-            var request = new GetAccountDetailsRequest { PhnNm = normalizedPhone };
-
-            _logger.LogInformation("CBMS GetAccountDetails: starting request (POST /sebt/get-account-details)");
-            var sw = Stopwatch.StartNew();
-            var response = await client.Sebt.GetAccountDetails.PostAsync(request, cancellationToken: cancellationToken).ConfigureAwait(false);
-            sw.Stop();
-
-            var rowCount = response?.StdntEnrollDtls?.Count ?? 0;
-            _logger.LogInformation(
-                "CBMS GetAccountDetails: completed in {ElapsedMs}ms, returned {RowCount} enrollment row(s)",
-                sw.ElapsedMilliseconds, rowCount);
-
-            if (response?.StdntEnrollDtls == null || response.StdntEnrollDtls.Count == 0)
-                return null;
-
-            return CbmsResponseMapper.MapToHouseholdData(response, normalizedPhone, piiVisibility, _logger);
+            response = await HouseholdCache!.GetAsync(normalizedPhone, cancellationToken).ConfigureAwait(false);
         }
         catch (ErrorResponse ex) when (ex.ResponseStatusCode == 404)
         {
-            _logger.LogInformation("CBMS GetAccountDetails: returned 404 (no household found)");
+            _logger.LogInformation("CBMS GetAccountDetails (via cache): 404 (no household found)");
             return null;
         }
         catch (ErrorResponse ex)
         {
-            _logger.LogWarning(ex, "CBMS GetAccountDetails failed with StatusCode: {StatusCode}; AdditionalData: {@AdditionalData}; ErrorDetails: {@ErrorDetails}",
+            _logger.LogWarning(ex, "CBMS GetAccountDetails (via cache) failed StatusCode={StatusCode}; AdditionalData={@AdditionalData}; ErrorDetails={@ErrorDetails}",
                 ex.ResponseStatusCode, ex.AdditionalData, ex.ErrorDetails);
             throw;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "CBMS GetAccountDetails failed for phone lookup.");
+            _logger.LogError(ex, "CBMS GetAccountDetails (via cache) failed for phone lookup.");
             throw;
         }
+
+        if (response is null || response.StdntEnrollDtls is null || response.StdntEnrollDtls.Count == 0)
+            return null;
+
+        return CbmsResponseMapper.MapToHouseholdData(response, normalizedPhone, piiVisibility, _logger);
     }
 }

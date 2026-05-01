@@ -1,17 +1,24 @@
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
+using NSubstitute;
 using SEBT.Portal.StatePlugins.CO;
+using SEBT.Portal.StatePlugins.CO.Cbms.Cache;
 using SEBT.Portal.StatesPlugins.Interfaces.Models.Household;
+using SEBT.Portal.StatesPlugins.Interfaces.Services;
 
 namespace SEBT.Portal.StatePlugins.CO.Tests.CbmsApi;
 
 /// <summary>
-/// Opt-in live verification against CBMS UAT: OAuth, get-account-details, then PATCH update-std-dtls
-/// with <c>reqNewCard = "Y"</c>. Uses the same credential flow as
+/// Opt-in live verification against CBMS UAT: OAuth, get-account-details (via household cache),
+/// then PATCH update-std-dtls with <c>reqNewCard = "Y"</c>. Uses the same credential flow as
 /// <see cref="CbmsSandboxFixture"/>. Skips when no credentials or when the sandbox phone does not
 /// resolve to a household (UAT data changes — no household means the happy path can't be exercised).
 /// </summary>
 [Collection("CbmsSandbox")]
-public class ColoradoCardReplacementServiceSandboxTests(CbmsSandboxFixture fixture)
+public class ColoradoCardReplacementServiceSandboxTests(CbmsSandboxFixture fixture) : IDisposable
 {
+    public void Dispose() => PluginCache.ResetForTesting();
+
     private const string SkipReason =
         "CBMS sandbox credentials not configured. " +
         "Set Cbms:ClientId and Cbms:ClientSecret via user-secrets or environment variables.";
@@ -22,7 +29,11 @@ public class ColoradoCardReplacementServiceSandboxTests(CbmsSandboxFixture fixtu
         Skip.If(!fixture.CredentialsConfigured, SkipReason);
         Skip.If(fixture.ColoradoCbmsConfiguration is null, SkipReason);
 
-        var service = new ColoradoCardReplacementService(fixture.ColoradoCbmsConfiguration);
+        // Reset the cache so PluginCache.GetOrBuild builds from the sandbox configuration.
+        PluginCache.ResetForTesting();
+
+        var hostProvider = BuildHostProvider();
+        var service = new ColoradoCardReplacementService(hostProvider, fixture.ColoradoCbmsConfiguration, testHttpMessageHandler: null);
         var result = await service.RequestCardReplacementAsync(new CardReplacementRequest
         {
             HouseholdIdentifierValue = "8185558437",
@@ -46,5 +57,21 @@ public class ColoradoCardReplacementServiceSandboxTests(CbmsSandboxFixture fixtu
         }
 
         Assert.True(result.IsSuccess, $"{result.ErrorCode}: {result.ErrorMessage}");
+    }
+
+    /// <summary>
+    /// Builds a minimal host provider with the services required by <see cref="PluginCache.GetOrBuild"/>.
+    /// </summary>
+    private static IServiceProvider BuildHostProvider()
+    {
+        var services = new ServiceCollection();
+        services.AddLogging();
+        services.AddMemoryCache();
+        services.AddHybridCache();
+        services.AddSingleton<IHostApplicationLifetime>(_ => Substitute.For<IHostApplicationLifetime>());
+        var hasher = Substitute.For<IHMACSHA256Hasher>();
+        hasher.Hash(Arg.Any<string>()).Returns(c => "h:" + c.Arg<string>());
+        services.AddSingleton(hasher);
+        return services.BuildServiceProvider();
     }
 }

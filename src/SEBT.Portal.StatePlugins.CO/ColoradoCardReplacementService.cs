@@ -1,5 +1,5 @@
 using System.Composition;
-using System.Diagnostics;
+using Microsoft.Extensions.Caching.Hybrid;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -14,37 +14,54 @@ namespace SEBT.Portal.StatePlugins.CO;
 
 /// <summary>
 /// Colorado card-replacement via CBMS <c>update-std-dtls</c> with <c>reqNewCard = "Y"</c>.
-/// Resolves the household with get-account-details using <see cref="PhoneNormalizer"/> on
+/// Resolves the household via <see cref="ICbmsHouseholdCache"/> using <see cref="PhoneNormalizer"/> on
 /// <see cref="CardReplacementRequest.HouseholdIdentifierValue"/>, filters enrollment rows to
 /// those whose <c>sebtChldCwin</c> matches the requested <see cref="CardReplacementRequest.CaseIds"/>,
 /// then sends a single PATCH with one array element per matched student. The portal's
 /// <c>SummerEBTCaseID</c> maps to CBMS <c>sebtChldCwin</c> (cross-year); the PATCH body uses the
 /// per-year <c>sebtChldId</c> / <c>sebtAppId</c>.
 /// Successful updates require CBMS <c>respCd</c> <c>200</c> (spec) or <c>00</c> (observed UAT).
+/// Card-replacement cooldown is tracked in the portal database — no write-through to the cache.
 /// </summary>
 [Export(typeof(IStatePlugin))]
 [ExportMetadata("StateCode", "CO")]
-public class ColoradoCardReplacementService : ICardReplacementService
+public class ColoradoCardReplacementService : ColoradoCbmsServiceBase, ICardReplacementService
 {
     private readonly IConfiguration? _configuration;
     private readonly ILogger _logger;
-    private readonly HttpMessageHandler? _testHttpMessageHandler;
 
-    private CbmsConnectionOptions? _cachedOptions;
-    private CbmsSebtApiClient? _cachedClient;
-    private readonly object _clientCacheLock = new();
+    // Only non-null when constructed via the internal test ctor. Allows tests to inject
+    // a fake HttpMessageHandler for the PATCH path while the read path is served by
+    // the PluginCache substitute set via PluginCache.OverrideForTesting.
+    private readonly HttpMessageHandler? _testHttpMessageHandler;
 
     [ImportingConstructor]
     public ColoradoCardReplacementService(
+        [Import] IServiceProvider hostProvider,
         [Import(AllowDefault = true)] IConfiguration? configuration = null,
-        [Import(AllowDefault = true)] ILoggerFactory? loggerFactory = null)
+        [Import(AllowDefault = true)] ILoggerFactory? loggerFactory = null,
+        HybridCache? cache = null)
+        : base(
+            hostProvider,
+            configuration ?? throw new InvalidOperationException("IConfiguration required."),
+            cache,
+            loggerFactory?.CreateLogger<ColoradoCardReplacementService>() ?? NullLogger<ColoradoCardReplacementService>.Instance)
     {
         _configuration = configuration;
         _logger = loggerFactory?.CreateLogger<ColoradoCardReplacementService>() ?? NullLogger<ColoradoCardReplacementService>.Instance;
-        _testHttpMessageHandler = null;
     }
 
-    internal ColoradoCardReplacementService(IConfiguration? configuration, HttpMessageHandler? testHttpMessageHandler, ILogger? logger = null)
+    internal ColoradoCardReplacementService(
+        IServiceProvider hostProvider,
+        IConfiguration? configuration,
+        HttpMessageHandler? testHttpMessageHandler,
+        HybridCache? cache = null,
+        ILogger? logger = null)
+        : base(
+            hostProvider,
+            configuration ?? throw new InvalidOperationException("IConfiguration required."),
+            cache,
+            logger ?? NullLogger<ColoradoCardReplacementService>.Instance)
     {
         _configuration = configuration;
         _testHttpMessageHandler = testHttpMessageHandler;
@@ -95,33 +112,30 @@ public class ColoradoCardReplacementService : ICardReplacementService
                 "CBMS endpoint URLs are not configured. Set Cbms:ApiBaseUrl and Cbms:TokenEndpointUrl (or Cbms__* env vars).");
         }
 
-        var client = GetOrCreateClient(options);
-
         GetAccountDetailsResponse? accountResponse;
         try
         {
-            _logger.LogInformation("CBMS CardReplacement: fetching account details (POST /sebt/get-account-details)");
-            var sw = Stopwatch.StartNew();
-            accountResponse = await client.Sebt.GetAccountDetails.PostAsync(
-                new GetAccountDetailsRequest { PhnNm = phone10 },
-                cancellationToken: cancellationToken);
-            sw.Stop();
-            _logger.LogInformation(
-                "CBMS CardReplacement: get-account-details completed in {ElapsedMs}ms, {RowCount} enrollment row(s)",
-                sw.ElapsedMilliseconds, accountResponse?.StdntEnrollDtls?.Count ?? 0);
+            accountResponse = await HouseholdCache!.GetAsync(phone10, cancellationToken).ConfigureAwait(false);
         }
         catch (ErrorResponse ex)
         {
-            _logger.LogWarning("CBMS CardReplacement: get-account-details failed with StatusCode={StatusCode}", ex.ResponseStatusCode);
+            _logger.LogWarning("CBMS CardReplacement: get-account-details (cache) failed with StatusCode={StatusCode}", ex.ResponseStatusCode);
             return MapErrorResponse(ex);
         }
         catch (ApiException ex)
         {
-            _logger.LogWarning("CBMS CardReplacement: get-account-details failed with HTTP {StatusCode}", ex.ResponseStatusCode);
+            _logger.LogWarning("CBMS CardReplacement: get-account-details (cache) failed with HTTP {StatusCode}", ex.ResponseStatusCode);
             return BackendErrorFromApiException(ex);
         }
 
-        var students = accountResponse?.StdntEnrollDtls ?? [];
+        if (accountResponse is null)
+        {
+            return CardReplacementResult.PolicyRejected(
+                "HOUSEHOLD_NOT_FOUND",
+                "CBMS get-account-details returned no enrollment rows for the household identifier.");
+        }
+
+        var students = accountResponse.StdntEnrollDtls ?? [];
         if (students.Count == 0)
         {
             return CardReplacementResult.PolicyRejected(
@@ -152,12 +166,14 @@ public class ColoradoCardReplacementService : ICardReplacementService
                 x.Ids.SebtAppId))
             .ToList();
 
+        var client = GetOrCreateClient(options);
+
         try
         {
             _logger.LogInformation(
                 "CBMS CardReplacement: requesting new card for {StudentCount} student(s) (PATCH /sebt/update-std-dtls)",
                 updateBodies.Count);
-            var patchSw = Stopwatch.StartNew();
+            var patchSw = System.Diagnostics.Stopwatch.StartNew();
             var updateResponse = await client.Sebt.UpdateStdDtls.PatchAsync(updateBodies, cancellationToken: cancellationToken);
             patchSw.Stop();
             _logger.LogInformation(
@@ -166,6 +182,7 @@ public class ColoradoCardReplacementService : ICardReplacementService
 
             if (updateResponse != null && ColoradoAddressUpdateService.IsCbmsUpdateSuccessCode(updateResponse.RespCd))
             {
+                // No write-through: card-replacement cooldown is tracked in the portal database.
                 return CardReplacementResult.Success();
             }
 
@@ -184,23 +201,25 @@ public class ColoradoCardReplacementService : ICardReplacementService
         }
     }
 
-    private CbmsSebtApiClient GetOrCreateClient(CbmsConnectionOptions options)
+    /// <summary>
+    /// Overrides the base <see cref="ColoradoCbmsServiceBase.GetOrCreateClient"/> when a test HTTP handler
+    /// has been injected via the internal constructor. This preserves the test seam for the PATCH path
+    /// while the read path is served by the <see cref="PluginCache"/> substitute.
+    /// In production (where <see cref="_testHttpMessageHandler"/> is null) the base implementation is used.
+    /// </summary>
+    protected new CbmsSebtApiClient GetOrCreateClient(CbmsConnectionOptions options)
     {
-        lock (_clientCacheLock)
-        {
-            if (_cachedOptions == options && _cachedClient != null)
-                return _cachedClient;
+        if (_testHttpMessageHandler is null)
+            return base.GetOrCreateClient(options);
 
-            _cachedClient = CbmsSebtApiClientFactory.Create(
-                options.ClientId,
-                options.ClientSecret,
-                options.ApiBaseUrl,
-                options.TokenEndpointUrl,
-                _testHttpMessageHandler,
-                _logger);
-            _cachedOptions = options;
-            return _cachedClient;
-        }
+        // Test path: build a client with the injected handler each time (no caching needed in tests).
+        return CbmsSebtApiClientFactory.Create(
+            options.ClientId,
+            options.ClientSecret,
+            options.ApiBaseUrl,
+            options.TokenEndpointUrl,
+            _testHttpMessageHandler,
+            _logger);
     }
 
     /// <summary>Kiota uses the HTTP reason phrase (e.g. "Bad Request") as <see cref="ApiException.Message"/> — include status for clarity.</summary>

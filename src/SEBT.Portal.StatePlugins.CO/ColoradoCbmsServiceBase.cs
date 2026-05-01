@@ -1,6 +1,8 @@
 using Microsoft.Extensions.Caching.Hybrid;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using SEBT.Portal.StatePlugins.CO.Cbms;
+using SEBT.Portal.StatePlugins.CO.Cbms.Cache;
 using SEBT.Portal.StatePlugins.CO.CbmsApi;
 using SEBT.Portal.StatePlugins.CO.CbmsApi.Mocks;
 
@@ -11,16 +13,42 @@ public abstract class ColoradoCbmsServiceBase
     private readonly object _clientCacheLock = new();
     private readonly HybridCache? _cache;
     private readonly ILogger _logger;
-    
+
     private CbmsConnectionOptions? _cachedOptions;
     private CbmsSebtApiClient? _cachedClient;
 
+    /// <summary>
+    /// Plugin-wide household-cache singleton. Read paths use this; write paths
+    /// also read from it before PATCHing, and (for address updates) write through.
+    /// </summary>
+    private protected ICbmsHouseholdCache? HouseholdCache { get; }
+
+    /// <summary>
+    /// Full constructor for services that use the household cache (e.g., read paths).
+    /// Wires up <see cref="HouseholdCache"/> via <see cref="PluginCache.GetOrBuild"/>.
+    /// </summary>
+    protected ColoradoCbmsServiceBase(
+        IServiceProvider hostProvider,
+        IConfiguration configuration,
+        HybridCache? cache,
+        ILogger logger)
+    {
+        _cache = cache;
+        _logger = logger;
+        HouseholdCache = PluginCache.GetOrBuild(hostProvider, configuration);
+    }
+
+    /// <summary>
+    /// Minimal constructor for services that only need <see cref="GetOrCreateClient"/>
+    /// and do not use the household cache. <see cref="HouseholdCache"/> will be null
+    /// when constructed this way; call sites must not access it.
+    /// </summary>
     protected ColoradoCbmsServiceBase(HybridCache? cache, ILogger logger)
     {
         _cache = cache;
         _logger = logger;
     }
-    
+
     protected CbmsSebtApiClient GetOrCreateClient(CbmsConnectionOptions options)
     {
         lock (_clientCacheLock)
@@ -48,12 +76,9 @@ public abstract class ColoradoCbmsServiceBase
             }
 
             _cachedClient = CbmsSebtApiClientFactory.Create(
-                clientId,
-                clientSecret,
-                options.ApiBaseUrl,
-                options.TokenEndpointUrl,
-                handler,
-                _logger);
+                clientId, clientSecret,
+                options.ApiBaseUrl, options.TokenEndpointUrl,
+                handler, _logger);
             _cachedOptions = options;
             return _cachedClient;
         }
