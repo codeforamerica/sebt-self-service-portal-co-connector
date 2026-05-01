@@ -146,7 +146,9 @@ internal sealed class CbmsHouseholdCache : ICbmsHouseholdCache
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Background CBMS refresh failed; stale envelope retained");
+            _logger.LogError(ex,
+                "{Dependency} background refresh failed; stale envelope retained",
+                "CBMS");
         }
         finally
         {
@@ -178,7 +180,9 @@ internal sealed class CbmsHouseholdCache : ICbmsHouseholdCache
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Cache write-through failed for {Prefix}; invalidating to force re-fetch", KeyPrefix + "*");
+            _logger.LogError(ex,
+                "{Dependency} write-through failed for {Prefix}; invalidating to force re-fetch",
+                "HybridCache", KeyPrefix + "*");
             try
             {
                 await InvalidateAsync(normalizedPhone, cancellationToken).ConfigureAwait(false);
@@ -186,7 +190,9 @@ internal sealed class CbmsHouseholdCache : ICbmsHouseholdCache
             catch (Exception inner)
             {
                 // Best-effort secondary; if Invalidate also fails, log and move on.
-                _logger.LogWarning(inner, "Cache invalidation also failed during tripwire");
+                _logger.LogError(inner,
+                    "{Dependency} invalidation also failed during tripwire",
+                    "HybridCache");
             }
         }
     }

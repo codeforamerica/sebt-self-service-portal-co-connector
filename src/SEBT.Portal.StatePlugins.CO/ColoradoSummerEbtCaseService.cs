@@ -97,18 +97,23 @@ public class ColoradoSummerEbtCaseService : ColoradoCbmsServiceBase, ISummerEbtC
         }
         catch (ErrorResponse ex) when (ex.ResponseStatusCode == 404)
         {
-            _logger.LogInformation("CBMS GetAccountDetails (via cache): 404 (no household found)");
+            _logger.LogInformation(
+                "{Dependency} GetAccountDetails (via cache): 404 (no household found)",
+                "CBMS");
             return null;
         }
         catch (ErrorResponse ex)
         {
-            _logger.LogWarning(ex, "CBMS GetAccountDetails (via cache) failed StatusCode={StatusCode}; AdditionalData={@AdditionalData}; ErrorDetails={@ErrorDetails}",
-                ex.ResponseStatusCode, ex.AdditionalData, ex.ErrorDetails);
+            _logger.LogError(ex,
+                "{Dependency} GetAccountDetails (via cache) failed StatusCode={StatusCode}; AdditionalData={@AdditionalData}; ErrorDetails={@ErrorDetails}",
+                "CBMS", ex.ResponseStatusCode, ex.AdditionalData, ex.ErrorDetails);
             throw;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "CBMS GetAccountDetails (via cache) failed for phone lookup.");
+            _logger.LogError(ex,
+                "{Dependency} GetAccountDetails (via cache) failed for phone lookup.",
+                "CBMS");
             throw;
         }
 

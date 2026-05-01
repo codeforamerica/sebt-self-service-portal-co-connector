@@ -122,12 +122,16 @@ public class ColoradoAddressUpdateService : ColoradoCbmsServiceBase, IAddressUpd
         }
         catch (ErrorResponse ex)
         {
-            _logger.LogWarning("CBMS AddressUpdate: get-account-details (cache) failed with StatusCode={StatusCode}", ex.ResponseStatusCode);
+            _logger.LogError(ex,
+                "{Dependency} AddressUpdate: get-account-details (cache) failed with StatusCode={StatusCode}",
+                "CBMS", ex.ResponseStatusCode);
             return MapErrorResponse(ex);
         }
         catch (ApiException ex)
         {
-            _logger.LogWarning("CBMS AddressUpdate: get-account-details (cache) failed with HTTP {StatusCode}", ex.ResponseStatusCode);
+            _logger.LogError(ex,
+                "{Dependency} AddressUpdate: get-account-details (cache) failed with HTTP {StatusCode}",
+                "CBMS", ex.ResponseStatusCode);
             return BackendErrorFromApiException(ex);
         }
 
@@ -198,12 +202,16 @@ public class ColoradoAddressUpdateService : ColoradoCbmsServiceBase, IAddressUpd
         }
         catch (ErrorResponse ex)
         {
-            _logger.LogWarning("CBMS AddressUpdate: update-std-dtls failed with StatusCode={StatusCode}", ex.ResponseStatusCode);
+            _logger.LogError(ex,
+                "{Dependency} AddressUpdate: update-std-dtls failed with StatusCode={StatusCode}",
+                "CBMS", ex.ResponseStatusCode);
             return MapErrorResponse(ex);
         }
         catch (ApiException ex)
         {
-            _logger.LogWarning("CBMS AddressUpdate: update-std-dtls failed with HTTP {StatusCode}", ex.ResponseStatusCode);
+            _logger.LogError(ex,
+                "{Dependency} AddressUpdate: update-std-dtls failed with HTTP {StatusCode}",
+                "CBMS", ex.ResponseStatusCode);
             return BackendErrorFromApiException(ex);
         }
     }
