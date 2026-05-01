@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
@@ -118,6 +119,7 @@ public class CbmsHouseholdCacheBackgroundRefreshTests
         // Cache still has v1 (refresh failed).
         Assert.True(hybrid.TryGet<CbmsHouseholdCacheEnvelope?>("co:cbms:hash", out var stillThere));
         Assert.NotNull(stillThere);
-        Assert.Equal("v1", stillThere!.Response.StdntEnrollDtls![0].GurdFstNm);
+        var stillThereResponse = JsonSerializer.Deserialize<GetAccountDetailsResponse>(stillThere!.ResponseJson);
+        Assert.Equal("v1", stillThereResponse!.StdntEnrollDtls![0].GurdFstNm);
     }
 }

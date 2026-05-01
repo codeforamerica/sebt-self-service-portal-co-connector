@@ -14,6 +14,7 @@ public class CbmsHouseholdCacheOptionsTests
         Assert.Equal(240, sut.HardExpirationMinutes);
         Assert.Equal(60, sut.NegativeCacheSeconds);
         Assert.Equal(60, sut.BackgroundRefreshTimeoutSeconds);
+        Assert.Equal(60, sut.LocalCacheExpirationSeconds);
     }
 
     [Fact]
@@ -24,13 +25,15 @@ public class CbmsHouseholdCacheOptionsTests
             SoftExpirationMinutes = 20,
             HardExpirationMinutes = 300,
             NegativeCacheSeconds = 30,
-            BackgroundRefreshTimeoutSeconds = 45
+            BackgroundRefreshTimeoutSeconds = 45,
+            LocalCacheExpirationSeconds = 90
         };
 
         Assert.Equal(TimeSpan.FromMinutes(20), sut.SoftExpiration);
         Assert.Equal(TimeSpan.FromMinutes(300), sut.HardExpiration);
         Assert.Equal(TimeSpan.FromSeconds(30), sut.NegativeCacheExpiration);
         Assert.Equal(TimeSpan.FromSeconds(45), sut.BackgroundRefreshTimeout);
+        Assert.Equal(TimeSpan.FromSeconds(90), sut.LocalCacheExpiration);
     }
 
     [Fact]
@@ -41,19 +44,21 @@ public class CbmsHouseholdCacheOptionsTests
     }
 
     [Theory]
-    [InlineData(0, 240, 60, 60, "SoftExpirationMinutes must be > 0")]
-    [InlineData(15, 0, 60, 60, "HardExpirationMinutes must be > 0")]
-    [InlineData(240, 240, 60, 60, "SoftExpirationMinutes must be < HardExpirationMinutes")]
-    [InlineData(15, 240, -1, 60, "NegativeCacheSeconds must be >= 0")]
-    [InlineData(15, 240, 60, 0, "BackgroundRefreshTimeoutSeconds must be > 0")]
-    public void Validate_returns_error_when_invalid(int soft, int hard, int neg, int bg, string expected)
+    [InlineData(0, 240, 60, 60, 60, "SoftExpirationMinutes must be > 0")]
+    [InlineData(15, 0, 60, 60, 60, "HardExpirationMinutes must be > 0")]
+    [InlineData(240, 240, 60, 60, 60, "SoftExpirationMinutes must be < HardExpirationMinutes")]
+    [InlineData(15, 240, -1, 60, 60, "NegativeCacheSeconds must be >= 0")]
+    [InlineData(15, 240, 60, 0, 60, "BackgroundRefreshTimeoutSeconds must be > 0")]
+    [InlineData(15, 240, 60, 60, 0, "LocalCacheExpirationSeconds must be > 0")]
+    public void Validate_returns_error_when_invalid(int soft, int hard, int neg, int bg, int local, string expected)
     {
         var sut = new CbmsHouseholdCacheOptions
         {
             SoftExpirationMinutes = soft,
             HardExpirationMinutes = hard,
             NegativeCacheSeconds = neg,
-            BackgroundRefreshTimeoutSeconds = bg
+            BackgroundRefreshTimeoutSeconds = bg,
+            LocalCacheExpirationSeconds = local
         };
 
         Assert.Contains(expected, sut.Validate());
@@ -68,6 +73,7 @@ public class CbmsHouseholdCacheOptionsTests
             ["Cbms:Cache:HardExpirationMinutes"] = "120",
             ["Cbms:Cache:NegativeCacheSeconds"] = "30",
             ["Cbms:Cache:BackgroundRefreshTimeoutSeconds"] = "45",
+            ["Cbms:Cache:LocalCacheExpirationSeconds"] = "90",
         });
         var config = configBuilder.Build();
 
@@ -78,5 +84,6 @@ public class CbmsHouseholdCacheOptionsTests
         Assert.Equal(120, sut.HardExpirationMinutes);
         Assert.Equal(30, sut.NegativeCacheSeconds);
         Assert.Equal(45, sut.BackgroundRefreshTimeoutSeconds);
+        Assert.Equal(90, sut.LocalCacheExpirationSeconds);
     }
 }

@@ -13,9 +13,10 @@ public class CbmsHouseholdCacheWriteThroughTests
 {
     private const string Phone = "3035550199";
 
-    private static GetAccountDetailsResponse Populated() => new()
+    private static GetAccountDetailsResponse Populated(string respCd = "00") => new()
     {
-        StdntEnrollDtls = new() { new GetAccountStudentDetail() }
+        RespCd = respCd,
+        StdntEnrollDtls = new() { new GetAccountStudentDetail { GurdFstNm = "Marker" } }
     };
 
     [Fact]
@@ -32,12 +33,15 @@ public class CbmsHouseholdCacheWriteThroughTests
             Options.Create(new CbmsHouseholdCacheOptions()),
             fetch.Delegate);
 
-        var newResponse = Populated();
+        var newResponse = Populated("written");
         await sut.SetAsync(Phone, newResponse, CancellationToken.None);
 
         var read = await sut.GetAsync(Phone, CancellationToken.None);
 
-        Assert.Same(newResponse, read);
+        // Round-trips through JSON, so we get a structurally-equal copy rather than the same instance.
+        Assert.NotNull(read);
+        Assert.Equal("written", read!.RespCd);
+        Assert.Equal("Marker", read.StdntEnrollDtls![0].GurdFstNm);
         Assert.Equal(0, fetch.CallCount);
     }
 

@@ -13,10 +13,19 @@ internal sealed class InMemoryHybridCache : HybridCache
 {
     private readonly ConcurrentDictionary<string, object?> _store = new();
     private readonly ConcurrentDictionary<string, SemaphoreSlim> _locks = new();
+    private readonly ConcurrentDictionary<string, HybridCacheEntryOptions?> _latestOptions = new();
 
     public int FactoryInvocations { get; private set; }
 
     public IReadOnlyCollection<string> Keys => _store.Keys.ToArray();
+
+    /// <summary>
+    /// The most recent <see cref="HybridCacheEntryOptions"/> used to store the entry at <paramref name="key"/>,
+    /// captured from either the GetOrCreateAsync factory path or SetAsync. Null if the key has never been written
+    /// (or was written without options). Test seam for asserting that callers configure framework TTL correctly.
+    /// </summary>
+    public HybridCacheEntryOptions? LatestOptionsFor(string key)
+        => _latestOptions.TryGetValue(key, out var opts) ? opts : null;
 
     public bool TryGet<T>(string key, out T? value)
     {
@@ -53,6 +62,7 @@ internal sealed class InMemoryHybridCache : HybridCache
             FactoryInvocations++;
             var produced = await factory(state, cancellationToken).ConfigureAwait(false);
             _store[key] = produced;
+            _latestOptions[key] = options;
             return produced;
         }
         finally
@@ -70,6 +80,7 @@ internal sealed class InMemoryHybridCache : HybridCache
     {
         await Task.Yield();
         _store[key] = value;
+        _latestOptions[key] = options;
     }
 
     public override ValueTask RemoveAsync(string key, CancellationToken cancellationToken = default)

@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Text.Json;
 using Microsoft.Extensions.Caching.Hybrid;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -12,14 +13,11 @@ internal sealed class CbmsHouseholdCache : ICbmsHouseholdCache
 {
     private const string KeyPrefix = "co:cbms:";
 
-    // Sentinel stored in the cache for empty/null CBMS responses so that
-    // HybridCache treats the negative result as a hit and does not re-invoke
-    // the factory until the NegativeCacheExpiration window elapses.
-    // ReferenceEquals is used to detect this sentinel — do not use value equality.
-    private static readonly GetAccountDetailsResponse NegativeMarkerResponse = new()
-    {
-        StdntEnrollDtls = new()
-    };
+    // Default System.Text.Json options. The Kiota-generated GetAccountDetailsResponse uses
+    // PascalCase property names with no [JsonPropertyName] annotations, so default System.Text.Json
+    // PascalCase serialization round-trips cleanly. AdditionalData (IDictionary<string, object>)
+    // round-trips as JsonElement values which we never read — only the typed properties matter.
+    private static readonly JsonSerializerOptions JsonOptions = new();
 
     private readonly HybridCache _hybridCache;
     private readonly IHMACSHA256Hasher _hasher;
@@ -50,7 +48,11 @@ internal sealed class CbmsHouseholdCache : ICbmsHouseholdCache
     public async Task<GetAccountDetailsResponse?> GetAsync(string normalizedPhone, CancellationToken cancellationToken)
     {
         var key = KeyFor(normalizedPhone);
-        var hybridOptions = new HybridCacheEntryOptions { Expiration = _options.HardExpiration };
+        var hybridOptions = new HybridCacheEntryOptions
+        {
+            Expiration = _options.HardExpiration,
+            LocalCacheExpiration = _options.LocalCacheExpiration,
+        };
 
         var envelope = await _hybridCache.GetOrCreateAsync(
             key,
@@ -61,38 +63,60 @@ internal sealed class CbmsHouseholdCache : ICbmsHouseholdCache
 
         if (envelope is null) return null;
 
-        // Negative cache: sentinel envelope was stored for an empty/null CBMS response.
-        if (ReferenceEquals(envelope.Response, NegativeMarkerResponse)) return null;
+        var response = DeserializeResponse(envelope.ResponseJson);
 
-        if (DateTimeOffset.UtcNow < envelope.SoftExpiryUtc) return envelope.Response;
+        // Negative cache: detect by VALUE (empty rows), not by reference. The cached envelope
+        // is JSON; the deserialized Response is a fresh allocation on every read. Empty
+        // StdntEnrollDtls is the canonical "no household" shape and works identically across
+        // L1 (in-process) and L2 (Redis-deserialized cross-pod) reads.
+        if (response is null || response.StdntEnrollDtls is null or { Count: 0 })
+        {
+            // GetOrCreateAsync stored this entry with HardExpiration as the framework TTL
+            // (we can't pass per-result options to GetOrCreateAsync). Re-set with
+            // NegativeCacheExpiration so HybridCache also evicts at the right time —
+            // otherwise the framework retains the negative result for the full hard window
+            // and CBMS never gets re-checked when the household appears within that window.
+            // Idempotent: subsequent reads see the same envelope and re-set the (same) shorter TTL.
+            var negativeOptions = new HybridCacheEntryOptions
+            {
+                Expiration = _options.NegativeCacheExpiration,
+                LocalCacheExpiration = _options.NegativeCacheExpiration,
+            };
+            await _hybridCache.SetAsync(key, envelope, negativeOptions, cancellationToken: cancellationToken).ConfigureAwait(false);
+            return null;
+        }
+
+        if (DateTimeOffset.UtcNow < envelope.SoftExpiryUtc) return response;
 
         // Stale: return value immediately and trigger background refresh.
         TriggerBackgroundRefresh(key, normalizedPhone);
-        return envelope.Response;
+        return response;
     }
+
+    private static string SerializeResponse(GetAccountDetailsResponse response)
+        => JsonSerializer.Serialize(response, JsonOptions);
+
+    private static GetAccountDetailsResponse? DeserializeResponse(string json)
+        => string.IsNullOrEmpty(json) ? null : JsonSerializer.Deserialize<GetAccountDetailsResponse>(json, JsonOptions);
 
     private async ValueTask<CbmsHouseholdCacheEnvelope?> FetchAndWrapAsync(
         string normalizedPhone, CancellationToken cancellationToken)
     {
         var response = await _fetchFromCbms(normalizedPhone, cancellationToken).ConfigureAwait(false);
         var now = DateTimeOffset.UtcNow;
+        var isNegative = response?.StdntEnrollDtls is null or { Count: 0 };
 
-        if (response is null || response.StdntEnrollDtls is null || response.StdntEnrollDtls.Count == 0)
-        {
-            // Negative cache: store a sentinel envelope with a shorter TTL so the
-            // HybridCache layer treats it as a hit and does not re-invoke the factory
-            // until NegativeCacheExpiration elapses.
-            return new CbmsHouseholdCacheEnvelope(
-                Response: NegativeMarkerResponse,
-                SoftExpiryUtc: now + _options.NegativeCacheExpiration,
-                HardExpiryUtc: now + _options.NegativeCacheExpiration,
-                CachedAtUtc: now);
-        }
+        // Always wrap (even a literal-null CBMS response) so the framework caches an envelope
+        // rather than null; an empty Response is the canonical negative-cache shape, and
+        // GetAsync detects it by value to work correctly across L2 deserialization boundaries.
+        var wrapped = response ?? new GetAccountDetailsResponse { StdntEnrollDtls = new() };
+        var soft = isNegative ? _options.NegativeCacheExpiration : _options.SoftExpiration;
+        var hard = isNegative ? _options.NegativeCacheExpiration : _options.HardExpiration;
 
         return new CbmsHouseholdCacheEnvelope(
-            Response: response,
-            SoftExpiryUtc: now + _options.SoftExpiration,
-            HardExpiryUtc: now + _options.HardExpiration,
+            ResponseJson: SerializeResponse(wrapped),
+            SoftExpiryUtc: now + soft,
+            HardExpiryUtc: now + hard,
             CachedAtUtc: now);
     }
 
@@ -112,7 +136,11 @@ internal sealed class CbmsHouseholdCache : ICbmsHouseholdCache
             {
                 await _hybridCache.SetAsync(
                     key, fresh,
-                    new HybridCacheEntryOptions { Expiration = _options.HardExpiration },
+                    new HybridCacheEntryOptions
+                    {
+                        Expiration = _options.HardExpiration,
+                        LocalCacheExpiration = _options.LocalCacheExpiration,
+                    },
                     cancellationToken: cts.Token).ConfigureAwait(false);
             }
         }
@@ -132,7 +160,7 @@ internal sealed class CbmsHouseholdCache : ICbmsHouseholdCache
         var key = KeyFor(normalizedPhone);
         var now = DateTimeOffset.UtcNow;
         var envelope = new CbmsHouseholdCacheEnvelope(
-            Response: value,
+            ResponseJson: SerializeResponse(value),
             SoftExpiryUtc: now + _options.SoftExpiration,
             HardExpiryUtc: now + _options.HardExpiration,
             CachedAtUtc: now);
@@ -141,7 +169,11 @@ internal sealed class CbmsHouseholdCache : ICbmsHouseholdCache
         {
             await _hybridCache.SetAsync(
                 key, envelope,
-                new HybridCacheEntryOptions { Expiration = _options.HardExpiration },
+                new HybridCacheEntryOptions
+                {
+                    Expiration = _options.HardExpiration,
+                    LocalCacheExpiration = _options.LocalCacheExpiration,
+                },
                 cancellationToken: cancellationToken).ConfigureAwait(false);
         }
         catch (Exception ex)
