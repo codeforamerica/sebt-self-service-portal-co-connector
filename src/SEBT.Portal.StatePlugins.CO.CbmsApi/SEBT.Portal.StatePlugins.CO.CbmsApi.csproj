@@ -16,4 +16,8 @@
         <EmbeddedResource Include="TestData\CbmsMocks\*.jsonc" />
     </ItemGroup>
 
+    <ItemGroup>
+        <InternalsVisibleTo Include="SEBT.Portal.StatePlugins.CO.Tests" />
+    </ItemGroup>
+
 </Project>
