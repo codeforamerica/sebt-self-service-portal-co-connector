@@ -106,7 +106,7 @@ public class CbmsResponseMapperTests
         Assert.Equal("case-123", @case.EbtCaseNumber);
         Assert.Equal("2001", @case.CaseDisplayNumber);
         Assert.Equal("4321", @case.EbtCardLastFour);
-        Assert.Equal("Active", @case.EbtCardStatus);
+        Assert.Equal(CardStatus.Active, @case.EbtCardStatus);
         Assert.False(@case.IsStreamlineCertified);
     }
 
@@ -423,13 +423,20 @@ public class CbmsResponseMapperTests
     }
 
     [Theory]
-    [InlineData("ACTIVE", "Active")]
-    [InlineData("REQUESTED", "Requested")]
-    [InlineData("MAILED", "Mailed")]
-    [InlineData("DEACTIVATED", "Deactivated")]
-    [InlineData("", "Unknown")]
-    [InlineData(null, "Unknown")]
-    public void MapToHouseholdData_maps_card_status_through_MapCardStatus(string? ebtCardSts, string expected)
+    [InlineData("ACTIVE", CardStatus.Active)]
+    [InlineData("LOST", CardStatus.Lost)]
+    [InlineData("STOLEN", CardStatus.Stolen)]
+    [InlineData("DAMAGED", CardStatus.Damaged)]
+    [InlineData("STATUSED BY STATE, NO REISSUE", CardStatus.DeactivatedByState)]
+    [InlineData("DEACTIVATED BY STATE", CardStatus.DeactivatedByState)]
+    [InlineData("NOT ACTIVATED", CardStatus.NotActivated)]
+    [InlineData("FROZEN", CardStatus.Frozen)]
+    [InlineData("UNDELIVERABLE", CardStatus.Undeliverable)]
+    [InlineData("active", CardStatus.Active)]
+    [InlineData("undeliverable", CardStatus.Undeliverable)]
+    [InlineData("", CardStatus.Unknown)]
+    [InlineData(null, CardStatus.Unknown)]
+    public void MapCardStatus_DcSpecValues_MapsCorrectly(string? ebtCardSts, CardStatus expected)
     {
         var student = CreateMinimalStudent();
         student.EbtCardSts = ebtCardSts;
@@ -443,6 +450,36 @@ public class CbmsResponseMapperTests
 
         var caseRecord = Assert.Single(result.SummerEbtCases);
         Assert.Equal(expected, caseRecord.EbtCardStatus);
+    }
+
+    [Theory]
+    [InlineData("DAMAGED, AUTO REISSUE")]
+    [InlineData("RETURNED")]
+    [InlineData("DEACTIVATED")]
+    [InlineData("DEACTIVATED, NO REISSUE")]
+    [InlineData("DEACTIVATED/CANCELLED")]
+    [InlineData("CANCELED BY PRIMARY NO REISSUE")]
+    [InlineData("UNAUTHORIZED USE, NO REISSUE")]
+    [InlineData("COMPROMISED, NO REISSUE")]
+    [InlineData("SOMETHING WHOLLY NOVEL")]
+    public void MapCardStatus_UnmappedToken_ReturnsUnknownAndLogsError(string raw)
+    {
+        var student = CreateMinimalStudent();
+        student.EbtCardSts = raw;
+        var response = new GetAccountDetailsResponse
+        {
+            StdntEnrollDtls = new List<GetAccountStudentDetail> { student }
+        };
+        var piiVisibility = new PiiVisibility(IncludeAddress: false, IncludeEmail: false, IncludePhone: false);
+        var logger = new CapturingLogger();
+
+        var result = CbmsResponseMapper.MapToHouseholdData(response, "8185551234", piiVisibility, logger);
+
+        var caseRecord = Assert.Single(result.SummerEbtCases);
+        Assert.Equal(CardStatus.Unknown, caseRecord.EbtCardStatus);
+        var entry = Assert.Single(logger.Entries);
+        Assert.Equal(LogLevel.Error, entry.Level);
+        Assert.Contains(raw, entry.Message);
     }
 
     [Fact]
@@ -483,9 +520,9 @@ public class CbmsResponseMapperTests
         var result = CbmsResponseMapper.MapToHouseholdData(response, "8185551234", piiVisibility, logger);
 
         var caseRecord = Assert.Single(result.SummerEbtCases);
-        Assert.Equal("Unknown", caseRecord.EbtCardStatus);
+        Assert.Equal(CardStatus.Unknown, caseRecord.EbtCardStatus);
         var entry = Assert.Single(logger.Entries);
-        Assert.Equal(LogLevel.Information, entry.Level);
+        Assert.Equal(LogLevel.Error, entry.Level);
         Assert.Contains("STATUSED_BY_STATE_NO_REISSUE", entry.Message);
     }
 
