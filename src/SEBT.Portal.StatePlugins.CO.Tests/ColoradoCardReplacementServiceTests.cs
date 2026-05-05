@@ -154,7 +154,7 @@ public class ColoradoCardReplacementServiceTests : IDisposable
         var result = await service.RequestCardReplacementAsync(new CardReplacementRequest
         {
             HouseholdIdentifierValue = "3035550199",
-            CaseIds = ["8912650"],
+            CaseRefs = [new CaseRef { SummerEbtCaseId = "8912650" }],
             Reason = CardReplacementReason.Unspecified
         });
 
@@ -176,7 +176,7 @@ public class ColoradoCardReplacementServiceTests : IDisposable
         var result = await service.RequestCardReplacementAsync(new CardReplacementRequest
         {
             HouseholdIdentifierValue = householdPhone,
-            CaseIds = ["8912650"],
+            CaseRefs = [new CaseRef { SummerEbtCaseId = "8912650" }],
             Reason = CardReplacementReason.Unspecified
         });
 
@@ -198,7 +198,7 @@ public class ColoradoCardReplacementServiceTests : IDisposable
         var result = await service.RequestCardReplacementAsync(new CardReplacementRequest
         {
             HouseholdIdentifierValue = "not-a-phone",
-            CaseIds = ["8912650"],
+            CaseRefs = [new CaseRef { SummerEbtCaseId = "8912650" }],
             Reason = CardReplacementReason.Unspecified
         });
 
@@ -221,7 +221,7 @@ public class ColoradoCardReplacementServiceTests : IDisposable
         var result = await service.RequestCardReplacementAsync(new CardReplacementRequest
         {
             HouseholdIdentifierValue = null!,
-            CaseIds = ["8912650"],
+            CaseRefs = [new CaseRef { SummerEbtCaseId = "8912650" }],
             Reason = CardReplacementReason.Unspecified
         });
 
@@ -244,7 +244,7 @@ public class ColoradoCardReplacementServiceTests : IDisposable
         var result = await service.RequestCardReplacementAsync(new CardReplacementRequest
         {
             HouseholdIdentifierValue = "3035550199",
-            CaseIds = [],
+            CaseRefs = [],
             Reason = CardReplacementReason.Unspecified
         });
 
@@ -275,7 +275,7 @@ public class ColoradoCardReplacementServiceTests : IDisposable
         var result = await service.RequestCardReplacementAsync(new CardReplacementRequest
         {
             HouseholdIdentifierValue = "3035550199",
-            CaseIds = ["8912650"],
+            CaseRefs = [new CaseRef { SummerEbtCaseId = "8912650" }],
             Reason = CardReplacementReason.Unspecified
         });
 
@@ -295,7 +295,7 @@ public class ColoradoCardReplacementServiceTests : IDisposable
         var result = await service.RequestCardReplacementAsync(new CardReplacementRequest
         {
             HouseholdIdentifierValue = "3035550199",
-            CaseIds = ["8912650"],
+            CaseRefs = [new CaseRef { SummerEbtCaseId = "8912650" }],
             Reason = CardReplacementReason.Unspecified
         });
 
@@ -315,7 +315,7 @@ public class ColoradoCardReplacementServiceTests : IDisposable
         var result = await service.RequestCardReplacementAsync(new CardReplacementRequest
         {
             HouseholdIdentifierValue = "3035550199",
-            CaseIds = ["9999999"],
+            CaseRefs = [new CaseRef { SummerEbtCaseId = "9999999" }],
             Reason = CardReplacementReason.Unspecified
         });
 
@@ -336,7 +336,7 @@ public class ColoradoCardReplacementServiceTests : IDisposable
         var result = await service.RequestCardReplacementAsync(new CardReplacementRequest
         {
             HouseholdIdentifierValue = "3035550199",
-            CaseIds = ["8912650", "9999999"],
+            CaseRefs = [new CaseRef { SummerEbtCaseId = "8912650" }, new CaseRef { SummerEbtCaseId = "9999999" }],
             Reason = CardReplacementReason.Unspecified
         });
 
@@ -362,7 +362,7 @@ public class ColoradoCardReplacementServiceTests : IDisposable
         var result = await service.RequestCardReplacementAsync(new CardReplacementRequest
         {
             HouseholdIdentifierValue = "3035550199",
-            CaseIds = ["1001", "1002"],
+            CaseRefs = [new CaseRef { SummerEbtCaseId = "1001" }, new CaseRef { SummerEbtCaseId = "1002" }],
             Reason = CardReplacementReason.Unspecified
         });
 
@@ -382,7 +382,7 @@ public class ColoradoCardReplacementServiceTests : IDisposable
         await service.RequestCardReplacementAsync(new CardReplacementRequest
         {
             HouseholdIdentifierValue = "3035550199",
-            CaseIds = ["8912650"],
+            CaseRefs = [new CaseRef { SummerEbtCaseId = "8912650" }],
             Reason = CardReplacementReason.Unspecified
         });
 
@@ -402,7 +402,7 @@ public class ColoradoCardReplacementServiceTests : IDisposable
         var result = await service.RequestCardReplacementAsync(new CardReplacementRequest
         {
             HouseholdIdentifierValue = "3035550199",
-            CaseIds = ["8912650"],
+            CaseRefs = [new CaseRef { SummerEbtCaseId = "8912650" }],
             Reason = CardReplacementReason.Unspecified
         });
 
@@ -438,7 +438,7 @@ public class ColoradoCardReplacementServiceTests : IDisposable
         var result = await service.RequestCardReplacementAsync(new CardReplacementRequest
         {
             HouseholdIdentifierValue = "3035550199",
-            CaseIds = ["8912650"],
+            CaseRefs = [new CaseRef { SummerEbtCaseId = "8912650" }],
             Reason = CardReplacementReason.Unspecified
         });
 
@@ -476,7 +476,7 @@ public class ColoradoCardReplacementServiceTests : IDisposable
         var result = await service.RequestCardReplacementAsync(new CardReplacementRequest
         {
             HouseholdIdentifierValue = "3035550199",
-            CaseIds = ["8912650"],
+            CaseRefs = [new CaseRef { SummerEbtCaseId = "8912650" }],
             Reason = CardReplacementReason.Unspecified
         });
 
@@ -501,7 +501,7 @@ public class ColoradoCardReplacementServiceTests : IDisposable
         var result = await service.RequestCardReplacementAsync(new CardReplacementRequest
         {
             HouseholdIdentifierValue = "3035550199",
-            CaseIds = ["12345"],
+            CaseRefs = [new CaseRef { SummerEbtCaseId = "12345" }],
             Reason = CardReplacementReason.Unspecified
         });
 
@@ -525,7 +525,7 @@ public class ColoradoCardReplacementServiceTests : IDisposable
         var result = await service.RequestCardReplacementAsync(new CardReplacementRequest
         {
             HouseholdIdentifierValue = "3035550199",
-            CaseIds = ["12345"],
+            CaseRefs = [new CaseRef { SummerEbtCaseId = "12345" }],
             Reason = CardReplacementReason.Unspecified
         });
 

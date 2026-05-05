@@ -16,7 +16,7 @@ namespace SEBT.Portal.StatePlugins.CO;
 /// Colorado card-replacement via CBMS <c>update-std-dtls</c> with <c>reqNewCard = "Y"</c>.
 /// Resolves the household via <see cref="ICbmsHouseholdCache"/> using <see cref="PhoneNormalizer"/> on
 /// <see cref="CardReplacementRequest.HouseholdIdentifierValue"/>, filters enrollment rows to
-/// those whose <c>sebtChldCwin</c> matches the requested <see cref="CardReplacementRequest.CaseIds"/>,
+/// those whose <c>sebtChldCwin</c> matches the requested <see cref="CardReplacementRequest.CaseRefs"/>,
 /// then sends a single PATCH with one array element per matched student. The portal's
 /// <c>SummerEBTCaseID</c> maps to CBMS <c>sebtChldCwin</c> (cross-year); the PATCH body uses the
 /// per-year <c>sebtChldId</c> / <c>sebtAppId</c>.
@@ -82,7 +82,7 @@ public class ColoradoCardReplacementService : ColoradoCbmsServiceBase, ICardRepl
                 "Colorado CBMS requires a valid US phone number in HouseholdIdentifierValue.");
         }
 
-        if (request.CaseIds is null || request.CaseIds.Count == 0)
+        if (request.CaseRefs is null || request.CaseRefs.Count == 0)
         {
             return CardReplacementResult.PolicyRejected(
                 "INVALID_CASE_IDS",
@@ -147,7 +147,9 @@ public class ColoradoCardReplacementService : ColoradoCbmsServiceBase, ICardRepl
                 "CBMS get-account-details returned no enrollment rows for the household identifier.");
         }
 
-        var requestedCwins = request.CaseIds.ToHashSet(StringComparer.Ordinal);
+        var requestedCwins = request.CaseRefs
+            .Select(r => r.SummerEbtCaseId)
+            .ToHashSet(StringComparer.Ordinal);
         var matched = students
             .Select(row => (Row: row, Cwin: row.SebtChldCwin?.ToString(System.Globalization.CultureInfo.InvariantCulture)))
             .Where(x => x.Cwin is not null && requestedCwins.Contains(x.Cwin))
@@ -155,11 +157,11 @@ public class ColoradoCardReplacementService : ColoradoCbmsServiceBase, ICardRepl
             .Where(x => CbmsGetAccountStudentDetailIds.CanBuildUpdatePayload(x.Ids))
             .ToList();
 
-        if (matched.Count != request.CaseIds.Count)
+        if (matched.Count != request.CaseRefs.Count)
         {
             return CardReplacementResult.PolicyRejected(
                 "CASES_NOT_FOUND",
-                $"Requested {request.CaseIds.Count} case(s), but only {matched.Count} matched usable CBMS enrollment row(s). " +
+                $"Requested {request.CaseRefs.Count} case(s), but only {matched.Count} matched usable CBMS enrollment row(s). " +
                 "Portal case list may be stale; ask the user to refresh and retry.");
         }
 
