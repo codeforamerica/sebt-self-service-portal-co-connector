@@ -61,12 +61,11 @@ public class ColoradoEnrollmentCheckServiceTests
     // ---------------------------------------------------------------------------
     // CorrelateResults: response correlation by stdReqInd, threshold, tie-break
     //
-    // Note on test surface choice (per plan.md fallback option): we test
-    // CorrelateResults directly and the request-shape via BuildCbmsRequests rather
-    // than spinning the full CheckEnrollmentAsync pipeline through a mock HTTP
-    // handler. The service constructor takes only IConfiguration / ILoggerFactory,
-    // so injecting a handler would require new test seams that the rest of the
-    // suite does not yet need.
+    // Tests target CorrelateResults directly and the outbound request shape via
+    // BuildCbmsRequests rather than driving the full CheckEnrollmentAsync pipeline
+    // through a mock HTTP handler. The service constructor only accepts
+    // IConfiguration and ILoggerFactory, so capturing the outbound HTTP body would
+    // require introducing a new test seam that the rest of the suite does not need.
     // ---------------------------------------------------------------------------
 
     private static ChildCheckRequest MakeRequest(
@@ -162,7 +161,7 @@ public class ColoradoEnrollmentCheckServiceTests
     [Fact]
     public void CorrelateResults_ScoreEqualToThreshold_ReturnsNonMatch_WithConfidence()
     {
-        // D5: threshold operator is strict greater-than. 90.0 -> NonMatch.
+        // Threshold operator is strict greater-than: a score of exactly 90.0 resolves to NonMatch.
         var child = MakeRequest("Test1", "Persona1", new DateOnly(2010, 1, 1));
         var children = new List<ChildCheckRequest> { child };
         var response = new CheckEnrollmentResponse
@@ -183,7 +182,7 @@ public class ColoradoEnrollmentCheckServiceTests
     [Fact]
     public void CorrelateResults_ScoreJustAboveThreshold_Eligible_ReturnsMatch()
     {
-        // D5: 90.5 is strictly greater than 90 -> Match (eligibility-gated).
+        // 90.5 is strictly greater than the 90 threshold, so the score gate passes and final status flows through the eligibility flag.
         var child = MakeRequest("Test2", "Persona2", new DateOnly(2010, 1, 1));
         var children = new List<ChildCheckRequest> { child };
         var response = new CheckEnrollmentResponse
@@ -285,9 +284,10 @@ public class ColoradoEnrollmentCheckServiceTests
     [Fact]
     public void CorrelateResults_TwoRowsSameStdReqInd_HighestScoreIneligible_StatusFollowsBestRow()
     {
-        // D3: highest mtchCnfd wins regardless of eligibility flag.
-        // D12: status flows through MapEnrollmentStatus on the winning row, so a
-        // 97-confidence row with sebtEligSts="N" maps to NonMatch.
+        // Tie-break across rows sharing a stdReqInd uses the highest mtchCnfd,
+        // regardless of the row's eligibility flag. The winning row's status then
+        // flows through MapEnrollmentStatus, so a 97-confidence row with
+        // sebtEligSts="N" still resolves to NonMatch.
         var child = MakeRequest("Test7", "Persona7", new DateOnly(2010, 1, 1));
         var children = new List<ChildCheckRequest> { child };
         var response = new CheckEnrollmentResponse
@@ -330,8 +330,9 @@ public class ColoradoEnrollmentCheckServiceTests
     [Fact]
     public void CorrelateResults_OrphanRowsWithoutStdReqInd_AreDropped_ChildResolvesAsNonMatch()
     {
-        // D7: orphan rows (null/empty StdReqInd) are dropped, not name+DOB
-        // fallback-matched. The child has no surviving row, so NonMatch.
+        // Response rows with null/empty StdReqInd are dropped from correlation
+        // entirely, not name+DOB-fallback-matched. With no surviving rows for the
+        // child's index, the result resolves to NonMatch.
         var child = MakeRequest("Test9", "Persona9", new DateOnly(2010, 1, 1));
         var children = new List<ChildCheckRequest> { child };
         var response = new CheckEnrollmentResponse
@@ -387,9 +388,9 @@ public class ColoradoEnrollmentCheckServiceTests
     }
 
     // ---------------------------------------------------------------------------
-    // Outbound request shape: per-row 1-based StdReqInd, names/DOB/school code
-    // pass through unchanged. Tested via the BuildCbmsRequests helper to keep the
-    // surface narrow. (See note above; closes the test gap called out in D9.)
+    // Outbound request shape: per-row 1-based StdReqInd; names, DOB, school code
+    // pass through unchanged. Tested via the BuildCbmsRequests helper for the
+    // reason described in the comment above the correlation tests.
     // ---------------------------------------------------------------------------
 
     [Fact]
