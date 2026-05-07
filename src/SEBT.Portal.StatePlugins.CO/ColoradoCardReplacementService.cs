@@ -16,7 +16,7 @@ namespace SEBT.Portal.StatePlugins.CO;
 /// Colorado card-replacement via CBMS <c>update-std-dtls</c> with <c>reqNewCard = "Y"</c>.
 /// Resolves the household via <see cref="ICbmsHouseholdCache"/> using <see cref="PhoneNormalizer"/> on
 /// <see cref="CardReplacementRequest.HouseholdIdentifierValue"/>, filters enrollment rows to
-/// those whose <c>sebtChldCwin</c> matches the requested <see cref="CardReplacementRequest.CaseIds"/>,
+/// those whose <c>sebtChldCwin</c> matches the requested <see cref="CardReplacementRequest.CaseRefs"/>,
 /// then sends a single PATCH with one array element per matched student. The portal's
 /// <c>SummerEBTCaseID</c> maps to CBMS <c>sebtChldCwin</c> (cross-year); the PATCH body uses the
 /// per-year <c>sebtChldId</c> / <c>sebtAppId</c>.
@@ -82,7 +82,7 @@ public class ColoradoCardReplacementService : ColoradoCbmsServiceBase, ICardRepl
                 "Colorado CBMS requires a valid US phone number in HouseholdIdentifierValue.");
         }
 
-        if (request.CaseIds is null || request.CaseIds.Count == 0)
+        if (request.CaseRefs is null || request.CaseRefs.Count == 0)
         {
             return CardReplacementResult.PolicyRejected(
                 "INVALID_CASE_IDS",
@@ -147,19 +147,35 @@ public class ColoradoCardReplacementService : ColoradoCbmsServiceBase, ICardRepl
                 "CBMS get-account-details returned no enrollment rows for the household identifier.");
         }
 
-        var requestedCwins = request.CaseIds.ToHashSet(StringComparer.Ordinal);
-        var matched = students
-            .Select(row => (Row: row, Cwin: row.SebtChldCwin?.ToString(System.Globalization.CultureInfo.InvariantCulture)))
-            .Where(x => x.Cwin is not null && requestedCwins.Contains(x.Cwin))
-            .Select(x => (x.Row, Ids: CbmsGetAccountStudentDetailIds.Resolve(x.Row)))
-            .Where(x => CbmsGetAccountStudentDetailIds.CanBuildUpdatePayload(x.Ids))
+        // Pre-filter DD rows. They must never be acted on regardless of how the request resolves to them.
+        var actionableStudents = students
+            .Where(s => !CbmsCaseFilters.IsDeniedDuplicate(s))
             .ToList();
 
-        if (matched.Count != request.CaseIds.Count)
+        // Resolve each requested CaseRef to at most one row.
+        // Prefer the (appId, childId) pair when both are present on the CaseRef (application-based
+        // active cases — uniquely keyed). Fall back to cwin only when the CaseRef carries no app/child
+        // ids (auto-eligible active cases — DD does not apply to DIRC/CDE rows, so cwin is unambiguous
+        // in that branch after the DD pre-filter).
+        var matched = new List<(GetAccountStudentDetail Row, CbmsGetAccountStudentDetailIds.ResolvedIds Ids)>();
+        foreach (var caseRef in request.CaseRefs)
+        {
+            var row = actionableStudents.FirstOrDefault(s => MatchesCaseRef(s, caseRef));
+            if (row is null) continue;
+
+            var ids = CbmsGetAccountStudentDetailIds.Resolve(row);
+            if (CbmsGetAccountStudentDetailIds.CanBuildUpdatePayload(ids))
+                matched.Add((row, ids));
+        }
+
+        // FirstOrDefault per CaseRef guarantees matched.Count <= request.CaseRefs.Count, so a strict
+        // less-than check. This is a defense in depth protection against PATCHing an empty array to
+        // CBMS but in theory this path should not get hit. Message intentionally generic.
+        if (matched.Count < request.CaseRefs.Count)
         {
             return CardReplacementResult.PolicyRejected(
                 "CASES_NOT_FOUND",
-                $"Requested {request.CaseIds.Count} case(s), but only {matched.Count} matched usable CBMS enrollment row(s). " +
+                $"Requested {request.CaseRefs.Count} case(s), but only {matched.Count} matched usable CBMS enrollment row(s). " +
                 "Portal case list may be stale; ask the user to refresh and retry.");
         }
 
@@ -228,6 +244,31 @@ public class ColoradoCardReplacementService : ColoradoCbmsServiceBase, ICardRepl
             options.TokenEndpointUrl,
             _testHttpMessageHandler,
             _logger);
+    }
+
+    /// <summary>
+    /// Matches a CBMS enrollment row to a portal-supplied <see cref="CaseRef"/>.
+    /// Prefers the unique <c>(sebtAppId, sebtChldId)</c> pair when both are present on the CaseRef
+    /// (application-based active cases). Falls back to <c>sebtChldCwin</c> matching when the CaseRef
+    /// carries no app/child ids (auto-eligible active cases — the portal model exposes only the cwin
+    /// for these, since <c>CbmsResponseMapper</c> populates <c>ApplicationId</c>/<c>ApplicationStudentId</c>
+    /// only when <c>eligSrc ∈ {CBMS, PK}</c>).
+    /// </summary>
+    private static bool MatchesCaseRef(GetAccountStudentDetail row, CaseRef caseRef)
+    {
+        if (!string.IsNullOrEmpty(caseRef.ApplicationId)
+            && !string.IsNullOrEmpty(caseRef.ApplicationStudentId))
+        {
+            return string.Equals(
+                    row.SebtAppId?.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                    caseRef.ApplicationId, StringComparison.Ordinal)
+                && string.Equals(
+                    row.SebtChldId?.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                    caseRef.ApplicationStudentId, StringComparison.Ordinal);
+        }
+        return string.Equals(
+            row.SebtChldCwin?.ToString(System.Globalization.CultureInfo.InvariantCulture),
+            caseRef.SummerEbtCaseId, StringComparison.Ordinal);
     }
 
     /// <summary>Kiota uses the HTTP reason phrase (e.g. "Bad Request") as <see cref="ApiException.Message"/> — include status for clarity.</summary>
