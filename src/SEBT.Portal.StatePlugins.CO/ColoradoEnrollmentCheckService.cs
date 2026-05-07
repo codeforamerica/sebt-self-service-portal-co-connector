@@ -1,5 +1,6 @@
 using System.Composition;
 using System.Diagnostics;
+using System.Globalization;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -26,6 +27,12 @@ public class ColoradoEnrollmentCheckService : ColoradoCbmsServiceBase, IEnrollme
     private const string BaseUrlConfigKey = "COConnector:CbmsApiBaseUrl";
     private const string ApiKeyConfigKey = "COConnector:CbmsApiKey";
 
+    /// <summary>
+    /// Strict greater-than threshold: a row's <c>mtchCnfd</c> must exceed this value
+    /// to be eligible for the eligibility-gated Match status. Below or equal -> NonMatch.
+    /// </summary>
+    private const double MatchConfidenceThreshold = 90.0;
+
     private readonly IConfiguration? _configuration;
     private readonly ILogger _logger;
 
@@ -51,7 +58,7 @@ public class ColoradoEnrollmentCheckService : ColoradoCbmsServiceBase, IEnrollme
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(request);
-        
+
         if (request.Children.Count == 0)
         {
             return new EnrollmentCheckResult
@@ -70,14 +77,11 @@ public class ColoradoEnrollmentCheckService : ColoradoCbmsServiceBase, IEnrollme
 
         var client = GetOrCreateClient(options);
 
-        // Map each child to a CBMS CheckEnrollmentRequest
-        var cbmsRequests = request.Children.Select(child => new CbmsCheckEnrollmentRequest
-        {
-            StdFirstName = child.FirstName,
-            StdLastName = child.LastName,
-            StdDob = child.DateOfBirth.ToString("yyyy-MM-dd"),
-            StdSchlCd = child.SchoolCode
-        }).ToList();
+        // Build the CBMS request rows tagged with a 1-based StdReqInd. CBMS echoes
+        // the indicator back on each response row so we can correlate by index
+        // rather than name+DOB equality (which fails on fuzzy matches like typos).
+        var cbmsRequests = BuildCbmsRequests(request.Children);
+        var indexToChild = BuildIndexToChildMap(request.Children);
 
         _logger.LogInformation(
             "CBMS EnrollmentCheck: starting request for {ChildCount} child(ren) (POST /sebt/check-enrollment)",
@@ -89,7 +93,7 @@ public class ColoradoEnrollmentCheckService : ColoradoCbmsServiceBase, IEnrollme
             "CBMS EnrollmentCheck: completed in {ElapsedMs}ms, returned {DetailCount} student detail(s)",
             sw.ElapsedMilliseconds, cbmsResponse?.StdntDtls?.Count ?? 0);
 
-        var results = CorrelateResults(request.Children, cbmsResponse);
+        var results = CorrelateResults(request.Children, cbmsResponse, indexToChild, _logger);
 
         return new EnrollmentCheckResult
         {
@@ -99,43 +103,87 @@ public class ColoradoEnrollmentCheckService : ColoradoCbmsServiceBase, IEnrollme
     }
 
     /// <summary>
-    /// Correlates CBMS API response student details back to the original request children.
-    /// CBMS doesn't echo correlation IDs, so we match on first name + last name + date of birth.
+    /// Builds the CBMS check-enrollment request list from the portal request children.
+    /// Each row is tagged with a 1-based <c>StdReqInd</c> string ("1", "2", ...) so
+    /// CBMS can echo it on the response and let us correlate without name equality.
     /// </summary>
-    private static IList<ChildCheckResult> CorrelateResults(
-        IList<ChildCheckRequest> requestChildren,
-        CheckEnrollmentResponse? cbmsResponse)
+    internal static List<CbmsCheckEnrollmentRequest> BuildCbmsRequests(IList<ChildCheckRequest> children)
     {
-        var results = new List<ChildCheckResult>();
-        var studentDetails = cbmsResponse?.StdntDtls ?? new List<CheckEnrollmentStudentDetail>();
+        return children
+            .Select((child, idx) => new CbmsCheckEnrollmentRequest
+            {
+                StdFirstName = child.FirstName,
+                StdLastName = child.LastName,
+                StdDob = child.DateOfBirth.ToString("yyyy-MM-dd"),
+                StdSchlCd = child.SchoolCode,
+                StdReqInd = (idx + 1).ToString(CultureInfo.InvariantCulture)
+            })
+            .ToList();
+    }
 
-        foreach (var child in requestChildren)
+    /// <summary>
+    /// Builds a 1-based-index -> request-child map mirroring <see cref="BuildCbmsRequests"/>.
+    /// Used by <see cref="CorrelateResults"/> to look up the original request child for
+    /// each response row's <c>StdReqInd</c>.
+    /// </summary>
+    private static Dictionary<string, ChildCheckRequest> BuildIndexToChildMap(IList<ChildCheckRequest> children)
+    {
+        var map = new Dictionary<string, ChildCheckRequest>(StringComparer.Ordinal);
+        for (var i = 0; i < children.Count; i++)
         {
-            var matchingDetail = studentDetails.FirstOrDefault(detail =>
-                string.Equals(detail.StdFstNm, child.FirstName, StringComparison.OrdinalIgnoreCase) &&
-                string.Equals(detail.StdLstNm, child.LastName, StringComparison.OrdinalIgnoreCase) &&
-                string.Equals(detail.StdDob, child.DateOfBirth.ToString("yyyy-MM-dd"), StringComparison.Ordinal));
+            map[(i + 1).ToString(CultureInfo.InvariantCulture)] = children[i];
+        }
+        return map;
+    }
 
-            if (matchingDetail != null)
+    /// <summary>
+    /// Correlates CBMS response student details to the original request children by the
+    /// echoed <c>StdReqInd</c>. For each child:
+    ///   - zero rows -> <see cref="EnrollmentStatus.NonMatch"/> with a "no matching record" message;
+    ///   - 1+ rows -> highest <c>MtchCnfd</c> wins; status flows through <see cref="MapEnrollmentStatus"/>
+    ///     when above the <see cref="MatchConfidenceThreshold"/>, otherwise NonMatch.
+    /// <c>MatchConfidence</c> is always populated from the winning row, even on the sub-threshold
+    /// NonMatch path, so logs and UI can surface the score we computed.
+    /// </summary>
+    internal static IList<ChildCheckResult> CorrelateResults(
+        IList<ChildCheckRequest> requestChildren,
+        CheckEnrollmentResponse? cbmsResponse,
+        IReadOnlyDictionary<string, ChildCheckRequest> indexToChild,
+        ILogger? logger = null)
+    {
+        var details = cbmsResponse?.StdntDtls ?? new List<CheckEnrollmentStudentDetail>();
+
+        var orphanCount = 0;
+        var keyedRows = new List<CheckEnrollmentStudentDetail>(details.Count);
+        foreach (var row in details)
+        {
+            if (string.IsNullOrEmpty(row.StdReqInd))
             {
-                var sebtEligSts = matchingDetail.AdditionalData.TryGetValue("sebtEligSts", out var value)
-                    ? value?.ToString()
-                    : null;
-
-                results.Add(new ChildCheckResult
-                {
-                    CheckId = child.CheckId,
-                    FirstName = child.FirstName,
-                    LastName = child.LastName,
-                    DateOfBirth = child.DateOfBirth,
-                    Status = MapEnrollmentStatus(sebtEligSts),
-                    MatchConfidence = matchingDetail.MtchCnfd,
-                    StatusMessage = sebtEligSts
-                });
+                orphanCount++;
+                continue;
             }
-            else
+            keyedRows.Add(row);
+        }
+
+        if (orphanCount > 0)
+        {
+            (logger ?? NullLogger.Instance).LogWarning(
+                "CBMS EnrollmentCheck: response contained {OrphanCount} row(s) with no StdReqInd; dropped from correlation",
+                orphanCount);
+        }
+
+        var rowsByReqInd = keyedRows
+            .GroupBy(r => r.StdReqInd!, StringComparer.Ordinal)
+            .ToDictionary(g => g.Key, g => g.ToList(), StringComparer.Ordinal);
+
+        var results = new List<ChildCheckResult>(requestChildren.Count);
+        for (var i = 0; i < requestChildren.Count; i++)
+        {
+            var key = (i + 1).ToString(CultureInfo.InvariantCulture);
+            var child = indexToChild.TryGetValue(key, out var mapped) ? mapped : requestChildren[i];
+
+            if (!rowsByReqInd.TryGetValue(key, out var rowsForChild) || rowsForChild.Count == 0)
             {
-                // No matching student detail found in the response
                 results.Add(new ChildCheckResult
                 {
                     CheckId = child.CheckId,
@@ -145,7 +193,32 @@ public class ColoradoEnrollmentCheckService : ColoradoCbmsServiceBase, IEnrollme
                     Status = EnrollmentStatus.NonMatch,
                     StatusMessage = "No matching record found in CBMS response"
                 });
+                continue;
             }
+
+            var best = rowsForChild
+                .OrderByDescending(r => r.MtchCnfd ?? double.NegativeInfinity)
+                .First();
+
+            var sebtEligSts = best.AdditionalData.TryGetValue("sebtEligSts", out var value)
+                ? value?.ToString()
+                : null;
+
+            var aboveThreshold = (best.MtchCnfd ?? double.NegativeInfinity) > MatchConfidenceThreshold;
+            var status = aboveThreshold
+                ? MapEnrollmentStatus(sebtEligSts)
+                : EnrollmentStatus.NonMatch;
+
+            results.Add(new ChildCheckResult
+            {
+                CheckId = child.CheckId,
+                FirstName = child.FirstName,
+                LastName = child.LastName,
+                DateOfBirth = child.DateOfBirth,
+                Status = status,
+                MatchConfidence = best.MtchCnfd,
+                StatusMessage = sebtEligSts
+            });
         }
 
         return results;
