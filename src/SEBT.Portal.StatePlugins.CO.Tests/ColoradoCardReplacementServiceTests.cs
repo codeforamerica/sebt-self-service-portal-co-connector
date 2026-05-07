@@ -111,6 +111,8 @@ public class ColoradoCardReplacementServiceTests : IDisposable
                     row.SebtChldId = chldIdVal;
                 if (element.TryGetProperty("sebtAppId", out var appId) && appId.TryGetInt32(out var appIdVal))
                     row.SebtAppId = appIdVal;
+                if (element.TryGetProperty("stdntEligSts", out var eligSts) && eligSts.ValueKind == System.Text.Json.JsonValueKind.String)
+                    row.StdntEligSts = eligSts.GetString();
                 response.StdntEnrollDtls.Add(row);
             }
         }
@@ -154,7 +156,7 @@ public class ColoradoCardReplacementServiceTests : IDisposable
         var result = await service.RequestCardReplacementAsync(new CardReplacementRequest
         {
             HouseholdIdentifierValue = "3035550199",
-            CaseIds = ["8912650"],
+            CaseRefs = [new CaseRef { SummerEbtCaseId = "8912650" }],
             Reason = CardReplacementReason.Unspecified
         });
 
@@ -176,7 +178,7 @@ public class ColoradoCardReplacementServiceTests : IDisposable
         var result = await service.RequestCardReplacementAsync(new CardReplacementRequest
         {
             HouseholdIdentifierValue = householdPhone,
-            CaseIds = ["8912650"],
+            CaseRefs = [new CaseRef { SummerEbtCaseId = "8912650" }],
             Reason = CardReplacementReason.Unspecified
         });
 
@@ -198,7 +200,7 @@ public class ColoradoCardReplacementServiceTests : IDisposable
         var result = await service.RequestCardReplacementAsync(new CardReplacementRequest
         {
             HouseholdIdentifierValue = "not-a-phone",
-            CaseIds = ["8912650"],
+            CaseRefs = [new CaseRef { SummerEbtCaseId = "8912650" }],
             Reason = CardReplacementReason.Unspecified
         });
 
@@ -221,7 +223,7 @@ public class ColoradoCardReplacementServiceTests : IDisposable
         var result = await service.RequestCardReplacementAsync(new CardReplacementRequest
         {
             HouseholdIdentifierValue = null!,
-            CaseIds = ["8912650"],
+            CaseRefs = [new CaseRef { SummerEbtCaseId = "8912650" }],
             Reason = CardReplacementReason.Unspecified
         });
 
@@ -244,7 +246,7 @@ public class ColoradoCardReplacementServiceTests : IDisposable
         var result = await service.RequestCardReplacementAsync(new CardReplacementRequest
         {
             HouseholdIdentifierValue = "3035550199",
-            CaseIds = [],
+            CaseRefs = [],
             Reason = CardReplacementReason.Unspecified
         });
 
@@ -275,7 +277,7 @@ public class ColoradoCardReplacementServiceTests : IDisposable
         var result = await service.RequestCardReplacementAsync(new CardReplacementRequest
         {
             HouseholdIdentifierValue = "3035550199",
-            CaseIds = ["8912650"],
+            CaseRefs = [new CaseRef { SummerEbtCaseId = "8912650" }],
             Reason = CardReplacementReason.Unspecified
         });
 
@@ -295,7 +297,7 @@ public class ColoradoCardReplacementServiceTests : IDisposable
         var result = await service.RequestCardReplacementAsync(new CardReplacementRequest
         {
             HouseholdIdentifierValue = "3035550199",
-            CaseIds = ["8912650"],
+            CaseRefs = [new CaseRef { SummerEbtCaseId = "8912650" }],
             Reason = CardReplacementReason.Unspecified
         });
 
@@ -315,7 +317,7 @@ public class ColoradoCardReplacementServiceTests : IDisposable
         var result = await service.RequestCardReplacementAsync(new CardReplacementRequest
         {
             HouseholdIdentifierValue = "3035550199",
-            CaseIds = ["9999999"],
+            CaseRefs = [new CaseRef { SummerEbtCaseId = "9999999" }],
             Reason = CardReplacementReason.Unspecified
         });
 
@@ -336,7 +338,7 @@ public class ColoradoCardReplacementServiceTests : IDisposable
         var result = await service.RequestCardReplacementAsync(new CardReplacementRequest
         {
             HouseholdIdentifierValue = "3035550199",
-            CaseIds = ["8912650", "9999999"],
+            CaseRefs = [new CaseRef { SummerEbtCaseId = "8912650" }, new CaseRef { SummerEbtCaseId = "9999999" }],
             Reason = CardReplacementReason.Unspecified
         });
 
@@ -362,7 +364,7 @@ public class ColoradoCardReplacementServiceTests : IDisposable
         var result = await service.RequestCardReplacementAsync(new CardReplacementRequest
         {
             HouseholdIdentifierValue = "3035550199",
-            CaseIds = ["1001", "1002"],
+            CaseRefs = [new CaseRef { SummerEbtCaseId = "1001" }, new CaseRef { SummerEbtCaseId = "1002" }],
             Reason = CardReplacementReason.Unspecified
         });
 
@@ -382,7 +384,7 @@ public class ColoradoCardReplacementServiceTests : IDisposable
         await service.RequestCardReplacementAsync(new CardReplacementRequest
         {
             HouseholdIdentifierValue = "3035550199",
-            CaseIds = ["8912650"],
+            CaseRefs = [new CaseRef { SummerEbtCaseId = "8912650" }],
             Reason = CardReplacementReason.Unspecified
         });
 
@@ -402,7 +404,7 @@ public class ColoradoCardReplacementServiceTests : IDisposable
         var result = await service.RequestCardReplacementAsync(new CardReplacementRequest
         {
             HouseholdIdentifierValue = "3035550199",
-            CaseIds = ["8912650"],
+            CaseRefs = [new CaseRef { SummerEbtCaseId = "8912650" }],
             Reason = CardReplacementReason.Unspecified
         });
 
@@ -438,7 +440,7 @@ public class ColoradoCardReplacementServiceTests : IDisposable
         var result = await service.RequestCardReplacementAsync(new CardReplacementRequest
         {
             HouseholdIdentifierValue = "3035550199",
-            CaseIds = ["8912650"],
+            CaseRefs = [new CaseRef { SummerEbtCaseId = "8912650" }],
             Reason = CardReplacementReason.Unspecified
         });
 
@@ -476,7 +478,7 @@ public class ColoradoCardReplacementServiceTests : IDisposable
         var result = await service.RequestCardReplacementAsync(new CardReplacementRequest
         {
             HouseholdIdentifierValue = "3035550199",
-            CaseIds = ["8912650"],
+            CaseRefs = [new CaseRef { SummerEbtCaseId = "8912650" }],
             Reason = CardReplacementReason.Unspecified
         });
 
@@ -501,7 +503,7 @@ public class ColoradoCardReplacementServiceTests : IDisposable
         var result = await service.RequestCardReplacementAsync(new CardReplacementRequest
         {
             HouseholdIdentifierValue = "3035550199",
-            CaseIds = ["12345"],
+            CaseRefs = [new CaseRef { SummerEbtCaseId = "12345" }],
             Reason = CardReplacementReason.Unspecified
         });
 
@@ -525,13 +527,153 @@ public class ColoradoCardReplacementServiceTests : IDisposable
         var result = await service.RequestCardReplacementAsync(new CardReplacementRequest
         {
             HouseholdIdentifierValue = "3035550199",
-            CaseIds = ["12345"],
+            CaseRefs = [new CaseRef { SummerEbtCaseId = "12345" }],
             Reason = CardReplacementReason.Unspecified
         });
 
         Assert.True(result.IsSuccess);
         await fakeCache.DidNotReceive().SetAsync(Arg.Any<string>(), Arg.Any<GetAccountDetailsResponse>(), Arg.Any<CancellationToken>());
         await fakeCache.DidNotReceive().InvalidateAsync(Arg.Any<string>(), Arg.Any<CancellationToken>());
+    }
+
+    // ---------------------------------------------------------------------------
+    // DD-collision tests (DC-358)
+    //
+    // Mirrors the real captured CBMS shape: two rows for the same child sharing a
+    // sebtChldCwin. The first is AP, the second is DD.
+    // ---------------------------------------------------------------------------
+
+    /// <summary>
+    /// Two rows for the same child sharing a sebtChldCwin: one AP and one DD, with
+    /// distinct (sebtAppId, sebtChldId) pairs. This is the data shape that triggers
+    /// the cwin collision — a child certified through one path also has a denied-duplicate
+    /// application on another.
+    /// Tests differentiate the two real-world variants (auto-eligible-active vs
+    /// application-based-active) by varying the <c>CaseRef</c> they pass to the service:
+    /// auto-eligible passes null <c>ApplicationId</c>/<c>ApplicationStudentId</c>, exercising the
+    /// cwin-fallback match path; application-based passes both, exercising the unique-pair match.
+    /// </summary>
+    private static string DDCollisionEnrollmentJson(
+        int sharedCwin,
+        int apAppId, int apChldId,
+        int ddAppId, int ddChldId) =>
+        $$"""
+        {
+          "stdntEnrollDtls": [
+            {"sebtChldCwin":{{sharedCwin}},"sebtChldId":{{apChldId}},"sebtAppId":{{apAppId}},"stdntEligSts":"AP"},
+            {"sebtChldCwin":{{sharedCwin}},"sebtChldId":{{ddChldId}},"sebtAppId":{{ddAppId}},"stdntEligSts":"DD"}
+          ]
+        }
+        """;
+
+    [Fact]
+    public async Task RequestCardReplacementAsync_DDCollision_DIRCActive_matches_only_AP_row()
+    {
+        // Mirrors captured review2 data: AP row is auto-eligible (DIRC), so portal model
+        // exposes null ApplicationId/ApplicationStudentId — frontend's CaseRef carries only the cwin.
+        // Cwin matches both the AP and DD rows; the DD pre-filter must remove the DD row
+        // so cwin-based matching lands on the AP row only.
+        var handler = new CardReplacementPipelineMessageHandler(
+            accountDetailsJson: DDCollisionEnrollmentJson(
+                sharedCwin: 3575922,
+                apAppId: 1199133, apChldId: 1200889,
+                ddAppId: 1199934, ddChldId: 1201813));
+        var service = BuildService(handler);
+
+        var result = await service.RequestCardReplacementAsync(new CardReplacementRequest
+        {
+            HouseholdIdentifierValue = "3035550199",
+            CaseRefs =
+            [
+                new CaseRef
+                {
+                    SummerEbtCaseId = "3575922",
+                    ApplicationId = null,
+                    ApplicationStudentId = null
+                }
+            ],
+            Reason = CardReplacementReason.Unspecified
+        });
+
+        Assert.True(result.IsSuccess);
+        Assert.True(handler.ReceivedPatch);
+        Assert.Equal(1, handler.LastPatchBodyElementCount);
+        Assert.Contains("1199133", handler.LastPatchBodyRaw);
+        Assert.Contains("1200889", handler.LastPatchBodyRaw);
+        Assert.DoesNotContain("1199934", handler.LastPatchBodyRaw);
+        Assert.DoesNotContain("1201813", handler.LastPatchBodyRaw);
+    }
+
+    [Fact]
+    public async Task RequestCardReplacementAsync_ApplicationBasedActive_with_DD_sibling_matches_by_appId_and_chldId()
+    {
+        // Hypothetical second shape: both AP and DD rows are application-based.
+        // Frontend's CaseRef carries the populated (ApplicationId, ApplicationStudentId)
+        // because the read-path mapper exposes them for application-based cases.
+        // The (appId, chldId) match path uniquely identifies the AP row.
+        var handler = new CardReplacementPipelineMessageHandler(
+            accountDetailsJson: DDCollisionEnrollmentJson(
+                sharedCwin: 7001,
+                apAppId: 5001, apChldId: 6001,
+                ddAppId: 5002, ddChldId: 6002));
+        var service = BuildService(handler);
+
+        var result = await service.RequestCardReplacementAsync(new CardReplacementRequest
+        {
+            HouseholdIdentifierValue = "3035550199",
+            CaseRefs =
+            [
+                new CaseRef
+                {
+                    SummerEbtCaseId = "7001",
+                    ApplicationId = "5001",
+                    ApplicationStudentId = "6001"
+                }
+            ],
+            Reason = CardReplacementReason.Unspecified
+        });
+
+        Assert.True(result.IsSuccess);
+        Assert.True(handler.ReceivedPatch);
+        Assert.Equal(1, handler.LastPatchBodyElementCount);
+        Assert.Contains("5001", handler.LastPatchBodyRaw);
+        Assert.Contains("6001", handler.LastPatchBodyRaw);
+        Assert.DoesNotContain("5002", handler.LastPatchBodyRaw);
+        Assert.DoesNotContain("6002", handler.LastPatchBodyRaw);
+    }
+
+    [Fact]
+    public async Task RequestCardReplacementAsync_DDPreFilter_excludes_DD_row_even_when_appId_chldId_target_it()
+    {
+        // Defense-in-depth: even if a stale or malformed CaseRef carried the DD row's
+        // (ApplicationId, ApplicationStudentId), the DD pre-filter removes that row
+        // from the candidate pool before matching. Returns CASES_NOT_FOUND.
+        var handler = new CardReplacementPipelineMessageHandler(
+            accountDetailsJson: DDCollisionEnrollmentJson(
+                sharedCwin: 1001,
+                apAppId: 8001, apChldId: 9001,
+                ddAppId: 8002, ddChldId: 9002));
+        var service = BuildService(handler);
+
+        var result = await service.RequestCardReplacementAsync(new CardReplacementRequest
+        {
+            HouseholdIdentifierValue = "3035550199",
+            CaseRefs =
+            [
+                new CaseRef
+                {
+                    SummerEbtCaseId = "1001",
+                    ApplicationId = "8002",
+                    ApplicationStudentId = "9002"
+                }
+            ],
+            Reason = CardReplacementReason.Unspecified
+        });
+
+        Assert.False(result.IsSuccess);
+        Assert.True(result.IsPolicyRejection);
+        Assert.Equal("CASES_NOT_FOUND", result.ErrorCode);
+        Assert.False(handler.ReceivedPatch);
     }
 
     // ---------------------------------------------------------------------------
