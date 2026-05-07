@@ -37,7 +37,7 @@ public class ColoradoCardReplacementServiceSandboxTests(CbmsSandboxFixture fixtu
         var result = await service.RequestCardReplacementAsync(new CardReplacementRequest
         {
             HouseholdIdentifierValue = "8185558437",
-            CaseIds = ["0"],
+            CaseRefs = [new CaseRef { SummerEbtCaseId = "0" }],
             Reason = CardReplacementReason.Unspecified
         });
 
@@ -45,14 +45,14 @@ public class ColoradoCardReplacementServiceSandboxTests(CbmsSandboxFixture fixtu
         {
             Skip.If(
                 true,
-                "No sandbox enrollment for phone 8185558437 — use a HouseholdIdentifierValue + CaseIds that get-account-details resolves.");
+                "No sandbox enrollment for phone 8185558437 — use a HouseholdIdentifierValue + CaseRefs that get-account-details resolves.");
         }
 
         if (!result.IsSuccess && result.IsPolicyRejection && result.ErrorCode == "CASES_NOT_FOUND")
         {
             Skip.If(
                 true,
-                "Phone resolved, but placeholder CaseIds [\"0\"] did not match any sebtChldCwin. " +
+                "Phone resolved, but placeholder CaseRefs [\"0\"] did not match any sebtChldCwin. " +
                 "Replace with a real cross-year cwin from the UAT enrollment data to exercise the PATCH path.");
         }
 
