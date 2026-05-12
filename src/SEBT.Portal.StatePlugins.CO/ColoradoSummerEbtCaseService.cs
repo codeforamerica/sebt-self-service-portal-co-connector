@@ -68,6 +68,7 @@ public class ColoradoSummerEbtCaseService : ColoradoCbmsServiceBase, ISummerEbtC
     public Task<bool> TryMatchCoLoadedGuardianByBenefitIdAndDobAsync(
         string benefitIdentifierIc,
         DateOnly guardianDateOfBirth,
+        Guid portalUserId,
         CancellationToken cancellationToken = default)
     {
         return Task.FromResult(false);
@@ -80,6 +81,7 @@ public class ColoradoSummerEbtCaseService : ColoradoCbmsServiceBase, ISummerEbtC
         string guardianLoginEmail,
         PiiVisibility piiVisibility,
         IdentityAssuranceLevel identityAssuranceLevel,
+        Guid portalUserId,
         CancellationToken cancellationToken = default)
     {
         return Task.FromResult<HouseholdData?>(null);
