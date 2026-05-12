@@ -4,6 +4,7 @@ using System.Globalization;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Kiota.Abstractions;
 using Microsoft.Kiota.Abstractions.Authentication;
 using Microsoft.Kiota.Http.HttpClientLibrary;
 using SEBT.Portal.StatePlugins.CO.Cbms;
@@ -87,7 +88,31 @@ public class ColoradoEnrollmentCheckService : ColoradoCbmsServiceBase, IEnrollme
             "CBMS EnrollmentCheck: starting request for {ChildCount} child(ren) (POST /sebt/check-enrollment)",
             cbmsRequests.Count);
         var sw = Stopwatch.StartNew();
-        var cbmsResponse = await client.Sebt.CheckEnrollment.PostAsync(cbmsRequests, cancellationToken: cancellationToken);
+        CheckEnrollmentResponse? cbmsResponse;
+        try
+        {
+            cbmsResponse = await client.Sebt.CheckEnrollment.PostAsync(cbmsRequests, cancellationToken: cancellationToken);
+        }
+        catch (ErrorResponse ex)
+        {
+            sw.Stop();
+            var details = ex.ErrorDetails?
+                .Select(d => $"{d.Code ?? "(no code)"}: {d.Message ?? "(no message)"}")
+                .ToArray() ?? [];
+            _logger.LogError(ex,
+                "{Dependency} EnrollmentCheck: check-enrollment failed in {ElapsedMs}ms with StatusCode={StatusCode}, " +
+                "ApiName={ApiName}, CorrelationId={CorrelationId}, Timestamp={Timestamp}, ErrorDetails={ErrorDetails}",
+                "CBMS", sw.ElapsedMilliseconds, ex.ResponseStatusCode, ex.ApiName, ex.CorrelationId, ex.Timestamp, details);
+            throw;
+        }
+        catch (ApiException ex)
+        {
+            sw.Stop();
+            _logger.LogError(ex,
+                "{Dependency} EnrollmentCheck: check-enrollment failed in {ElapsedMs}ms with HTTP {StatusCode}",
+                "CBMS", sw.ElapsedMilliseconds, ex.ResponseStatusCode);
+            throw;
+        }
         sw.Stop();
         _logger.LogInformation(
             "CBMS EnrollmentCheck: completed in {ElapsedMs}ms, returned {DetailCount} student detail(s)",
