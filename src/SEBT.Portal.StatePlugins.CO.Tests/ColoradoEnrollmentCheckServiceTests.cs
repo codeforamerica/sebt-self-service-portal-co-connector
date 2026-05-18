@@ -387,6 +387,55 @@ public class ColoradoEnrollmentCheckServiceTests
         Assert.Equal(80, results[2].MatchConfidence);
     }
 
+    [Fact]
+    public void CorrelateResults_WhenCbmsReturnsNameAndDob_UsesCbmsValues()
+    {
+        // The connector must populate FirstName/LastName/DateOfBirth from the CBMS
+        // response row, not from the submitted request. The portal-side filter compares
+        // result vs request to detect fuzzy-match false positives — echoing submitted
+        // values back defeats that check entirely.
+        var child = MakeRequest("Jane", "Doe", new DateOnly(2015, 3, 12));
+        var children = new List<ChildCheckRequest> { child };
+        var response = new CheckEnrollmentResponse
+        {
+            StdntDtls = new List<CheckEnrollmentStudentDetail>
+            {
+                MakeResponseRow("1", 95, "Y", stdFstNm: "JANET", stdLstNm: "SMITH", stdDob: "2015-07-22")
+            }
+        };
+
+        var results = ColoradoEnrollmentCheckService.CorrelateResults(children, response, IndexMap(child));
+
+        var result = Assert.Single(results);
+        Assert.Equal("JANET", result.FirstName);
+        Assert.Equal("SMITH", result.LastName);
+        Assert.Equal(new DateOnly(2015, 7, 22), result.DateOfBirth);
+    }
+
+    [Fact]
+    public void CorrelateResults_WhenCbmsOmitsNameAndDob_FallsBackToSubmittedValues()
+    {
+        // Defensive: if CBMS returns null for name/DOB, fall back to submitted so the
+        // result stays usable. (The handler will replace with submitted values anyway,
+        // but the fallback keeps the connector self-consistent.)
+        var child = MakeRequest("Jane", "Doe", new DateOnly(2015, 3, 12));
+        var children = new List<ChildCheckRequest> { child };
+        var response = new CheckEnrollmentResponse
+        {
+            StdntDtls = new List<CheckEnrollmentStudentDetail>
+            {
+                MakeResponseRow("1", 95, "Y", stdFstNm: null, stdLstNm: null, stdDob: null)
+            }
+        };
+
+        var results = ColoradoEnrollmentCheckService.CorrelateResults(children, response, IndexMap(child));
+
+        var result = Assert.Single(results);
+        Assert.Equal("Jane", result.FirstName);
+        Assert.Equal("Doe", result.LastName);
+        Assert.Equal(new DateOnly(2015, 3, 12), result.DateOfBirth);
+    }
+
     // ---------------------------------------------------------------------------
     // Outbound request shape: per-row 1-based StdReqInd; names, DOB, school code
     // pass through unchanged. Tested via the BuildCbmsRequests helper for the
