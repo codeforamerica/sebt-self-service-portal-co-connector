@@ -31,8 +31,7 @@ internal static class CbmsAddressUpdateMapper
             SebtAppId = resolvedSebtAppId ?? studentRow.SebtAppId?.ToString(CultureInfo.InvariantCulture),
             Addr = ToCbmsAddress(portalAddress),
             GurdFstNm = studentRow.GurdFstNm,
-            GurdLstNm = studentRow.GurdLstNm,
-            GurdEmailAddr = studentRow.GurdEmailAddr
+            GurdLstNm = studentRow.GurdLstNm
         };
     }
 
