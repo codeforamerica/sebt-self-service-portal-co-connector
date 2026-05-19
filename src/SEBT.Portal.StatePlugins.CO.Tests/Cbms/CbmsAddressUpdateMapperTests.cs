@@ -42,7 +42,7 @@ public class CbmsAddressUpdateMapperTests
     }
 
     [Fact]
-    public void ToUpdateStudentDetailsRequest_includes_addr_and_cbms_ids_and_guardian_names_without_email()
+    public void ToUpdateStudentDetailsRequest_includes_only_addr_and_cbms_ids()
     {
         var portal = new HouseholdAddress
         {
@@ -64,8 +64,8 @@ public class CbmsAddressUpdateMapperTests
 
         Assert.Equal("88291", body.SebtChldId);
         Assert.Equal("556677", body.SebtAppId);
-        Assert.Equal("Jane", body.GurdFstNm);
-        Assert.Equal("Doe", body.GurdLstNm);
+        Assert.Null(body.GurdFstNm);
+        Assert.Null(body.GurdLstNm);
         Assert.Null(body.GurdEmailAddr);
         Assert.NotNull(body.Addr);
         Assert.Equal("456 Oak", body.Addr!.AddrLn1);
@@ -73,7 +73,7 @@ public class CbmsAddressUpdateMapperTests
     }
 
     [Fact]
-    public async Task ToUpdateStudentDetailsRequest_omits_gurdEmailAddr_from_serialized_json_when_not_set()
+    public async Task ToUpdateStudentDetailsRequest_omits_guardian_fields_from_serialized_json()
     {
         var body = CbmsAddressUpdateMapper.ToUpdateStudentDetailsRequest(
             new HouseholdAddress
@@ -94,8 +94,13 @@ public class CbmsAddressUpdateMapperTests
 
         var json = await KiotaJsonSerializer.SerializeAsStringAsync(body);
         using var doc = JsonDocument.Parse(json);
+        var root = doc.RootElement;
 
-        Assert.False(doc.RootElement.TryGetProperty("gurdEmailAddr", out _));
+        Assert.False(root.TryGetProperty("gurdFstNm", out _));
+        Assert.False(root.TryGetProperty("gurdLstNm", out _));
+        Assert.False(root.TryGetProperty("gurdEmailAddr", out _));
+        Assert.Equal("1", root.GetProperty("sebtChldId").GetString());
+        Assert.Equal("2", root.GetProperty("sebtAppId").GetString());
     }
 
     [Fact]
