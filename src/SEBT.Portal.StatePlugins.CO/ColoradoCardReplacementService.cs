@@ -275,18 +275,6 @@ public class ColoradoCardReplacementService : ColoradoCbmsServiceBase, ICardRepl
             caseRef.SummerEbtCaseId, StringComparison.Ordinal);
     }
 
-    private static string FormatPatchBodyForLog(UpdateStudentDetailsRequest b)
-    {
-        static string Len(string? s) => s is null ? "null" : $"{s.Length}c";
-        var a = b.Addr;
-        var addr = a is null
-            ? "null"
-            : $"present(addrLn1={Len(a.AddrLn1)}, addrLn2={Len(a.AddrLn2)}, cty={Len(a.Cty)}, staCd={a.StaCd ?? "null"}, zip={Len(a.Zip)}, zip4={a.Zip4 is not null})";
-        return $"sebtChldId={Len(b.SebtChldId)}, sebtAppId={Len(b.SebtAppId)}, addr={addr}, " +
-               $"reqNewCard={b.ReqNewCard ?? "null"}, gurdEmailAddr={Len(b.GurdEmailAddr)}, gurdFstNm={Len(b.GurdFstNm)}, gurdLstNm={Len(b.GurdLstNm)}, " +
-               $"ntfnOptInSw={b.NtfnOptInSw ?? "null"}, ntfnSrc={b.NtfnSrc ?? "null"}, optOut={b.OptOut ?? "null"}";
-    }
-
     /// <summary>Kiota uses the HTTP reason phrase (e.g. "Bad Request") as <see cref="ApiException.Message"/> — include status for clarity.</summary>
     private static CardReplacementResult BackendErrorFromApiException(ApiException ex)
     {

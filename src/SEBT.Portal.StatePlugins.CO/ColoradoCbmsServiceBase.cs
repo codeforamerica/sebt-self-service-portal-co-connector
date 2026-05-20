@@ -4,6 +4,7 @@ using Microsoft.Extensions.Logging;
 using SEBT.Portal.StatePlugins.CO.Cbms;
 using SEBT.Portal.StatePlugins.CO.Cbms.Cache;
 using SEBT.Portal.StatePlugins.CO.CbmsApi;
+using SEBT.Portal.StatePlugins.CO.CbmsApi.Models;
 using SEBT.Portal.StatePlugins.CO.CbmsApi.Mocks;
 
 namespace SEBT.Portal.StatePlugins.CO;
@@ -47,6 +48,18 @@ public abstract class ColoradoCbmsServiceBase
     {
         _cache = cache;
         _logger = logger;
+    }
+
+    protected static string FormatPatchBodyForLog(UpdateStudentDetailsRequest b)
+    {
+        static string Len(string? s) => s is null ? "null" : $"{s.Length}c";
+        var a = b.Addr;
+        var addr = a is null
+            ? "null"
+            : $"present(addrLn1={Len(a.AddrLn1)}, addrLn2={Len(a.AddrLn2)}, cty={Len(a.Cty)}, staCd={a.StaCd ?? "null"}, zip={Len(a.Zip)}, zip4={a.Zip4 is not null})";
+        return $"sebtChldId={Len(b.SebtChldId)}, sebtAppId={Len(b.SebtAppId)}, addr={addr}, " +
+               $"reqNewCard={b.ReqNewCard ?? "null"}, gurdEmailAddr={Len(b.GurdEmailAddr)}, gurdFstNm={Len(b.GurdFstNm)}, gurdLstNm={Len(b.GurdLstNm)}, " +
+               $"ntfnOptInSw={b.NtfnOptInSw ?? "null"}, ntfnSrc={b.NtfnSrc ?? "null"}, optOut={b.OptOut ?? "null"}";
     }
 
     protected CbmsSebtApiClient GetOrCreateClient(CbmsConnectionOptions options)
