@@ -39,10 +39,18 @@ public class ColoradoSummerEbtCaseService : ColoradoCbmsServiceBase, ISummerEbtC
         string identifierValue,
         PiiVisibility piiVisibility,
         IdentityAssuranceLevel identityAssuranceLevel,
+        Guid? portalUserId = null,
         CancellationToken cancellationToken = default)
     {
         if (identifierType == HouseholdIdentifierType.Email)
-            return await GetHouseholdByGuardianEmailAsync(identifierValue, piiVisibility, identityAssuranceLevel, cancellationToken).ConfigureAwait(false);
+        {
+            return await GetHouseholdByGuardianEmailAsync(
+                identifierValue,
+                piiVisibility,
+                identityAssuranceLevel,
+                portalUserId,
+                cancellationToken).ConfigureAwait(false);
+        }
 
         if (identifierType == HouseholdIdentifierType.Phone)
             return await GetHouseholdByPhoneAsync(identifierValue, piiVisibility, cancellationToken).ConfigureAwait(false);
@@ -55,6 +63,7 @@ public class ColoradoSummerEbtCaseService : ColoradoCbmsServiceBase, ISummerEbtC
         string guardianEmail,
         PiiVisibility piiVisibility,
         IdentityAssuranceLevel identityAssuranceLevel,
+        Guid? portalUserId = null,
         CancellationToken cancellationToken = default)
     {
         return Task.FromResult<HouseholdData?>(null);
