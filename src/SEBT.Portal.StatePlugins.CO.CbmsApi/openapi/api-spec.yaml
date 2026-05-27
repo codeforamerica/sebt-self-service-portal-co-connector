@@ -54,6 +54,13 @@ paths:
     post:
       operationId: Get Account Details
       description: Retrieves SEBT card balances, benefits availability and guardian contact information.
+      parameters:
+        - name: ebtCardService
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: ['Y', 'N']
       requestBody:
         content:
           application/json:

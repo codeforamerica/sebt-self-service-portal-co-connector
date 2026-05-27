@@ -5,6 +5,7 @@ using Microsoft.Extensions.Options;
 using SEBT.Portal.StatePlugins.CO.CbmsApi;
 using SEBT.Portal.StatePlugins.CO.CbmsApi.Models;
 using SEBT.Portal.StatePlugins.CO.CbmsApi.Mocks;
+using SEBT.Portal.StatePlugins.CO.CbmsApi.Sebt.GetAccountDetails;
 
 namespace SEBT.Portal.StatePlugins.CO.Cbms.Cache;
 
@@ -55,7 +56,7 @@ internal static class PluginCache
                 handler,
                 cbmsLogger);
 
-            CbmsFetchAccountDetailsDelegate fetchFromCbms = BuildFetchDelegate(cbmsClient, cbmsConnection.ApiBaseUrl);
+            CbmsFetchAccountDetailsDelegate fetchFromCbms = BuildFetchDelegate(cbmsClient);
 
             _instance = ActivatorUtilities.CreateInstance<CbmsHouseholdCache>(
                 hostProvider,
@@ -70,17 +71,18 @@ internal static class PluginCache
     /// Builds the delegate used to fetch account details from CBMS.
     /// Extracted for testability; production code calls this via <see cref="GetOrBuild"/>.
     /// </summary>
-    internal static CbmsFetchAccountDetailsDelegate BuildFetchDelegate(CbmsSebtApiClient client, string apiBaseUrl)
+    internal static CbmsFetchAccountDetailsDelegate BuildFetchDelegate(CbmsSebtApiClient client)
     {
         return async (phone, includeCardService, ct) =>
         {
             try
             {
-                var ebtCardService = includeCardService ? "Y" : "N";
-                var url = $"{apiBaseUrl}/sebt/get-account-details?ebtCardService={ebtCardService}";
                 var request = new GetAccountDetailsRequest { PhnNm = phone };
-                return await client.Sebt.GetAccountDetails.WithUrl(url)
-                    .PostAsync(request, cancellationToken: ct)
+                var ebtCardService = includeCardService
+                    ? PostEbtCardServiceQueryParameterType.Y
+                    : PostEbtCardServiceQueryParameterType.N;
+                return await client.Sebt.GetAccountDetails
+                    .PostAsync(request, x => x.QueryParameters.EbtCardService = ebtCardService, cancellationToken: ct)
                     .ConfigureAwait(false);
             }
             catch (ErrorResponse ex) when (ex.ResponseStatusCode == 404)

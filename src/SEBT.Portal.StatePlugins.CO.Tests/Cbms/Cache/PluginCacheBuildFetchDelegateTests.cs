@@ -21,7 +21,7 @@ public class PluginCacheBuildFetchDelegateTests
             "https://api.example.com/token",
             handler);
 
-        var @delegate = PluginCache.BuildFetchDelegate(client, "https://api.example.com");
+        var @delegate = PluginCache.BuildFetchDelegate(client);
         await @delegate("3035551234", true, CancellationToken.None);
 
         Assert.NotNull(capturedApiUrl);
@@ -41,7 +41,7 @@ public class PluginCacheBuildFetchDelegateTests
             "https://api.example.com/token",
             handler);
 
-        var @delegate = PluginCache.BuildFetchDelegate(client, "https://api.example.com");
+        var @delegate = PluginCache.BuildFetchDelegate(client);
         await @delegate("3035551234", false, CancellationToken.None);
 
         Assert.NotNull(capturedApiUrl);
