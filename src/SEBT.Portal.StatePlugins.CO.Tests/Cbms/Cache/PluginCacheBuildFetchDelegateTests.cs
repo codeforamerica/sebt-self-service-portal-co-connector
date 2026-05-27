@@ -22,10 +22,30 @@ public class PluginCacheBuildFetchDelegateTests
             handler);
 
         var @delegate = PluginCache.BuildFetchDelegate(client, "https://api.example.com");
-        await @delegate("3035551234", CancellationToken.None);
+        await @delegate("3035551234", true, CancellationToken.None);
 
         Assert.NotNull(capturedApiUrl);
         Assert.Contains("ebtCardService=Y", capturedApiUrl, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task BuildFetchDelegate_sends_ebtCardService_N_when_includeCardService_false()
+    {
+        string? capturedApiUrl = null;
+        var handler = new UrlCapturingHttpHandler(url => capturedApiUrl = url);
+
+        var client = CbmsSebtApiClientFactory.Create(
+            "test-client-id",
+            "test-client-secret",
+            "https://api.example.com",
+            "https://api.example.com/token",
+            handler);
+
+        var @delegate = PluginCache.BuildFetchDelegate(client, "https://api.example.com");
+        await @delegate("3035551234", false, CancellationToken.None);
+
+        Assert.NotNull(capturedApiUrl);
+        Assert.Contains("ebtCardService=N", capturedApiUrl, StringComparison.OrdinalIgnoreCase);
     }
 
     private sealed class UrlCapturingHttpHandler : HttpMessageHandler

@@ -115,7 +115,7 @@ public class ColoradoCardReplacementService : ColoradoCbmsServiceBase, ICardRepl
         GetAccountDetailsResponse? accountResponse;
         try
         {
-            accountResponse = await HouseholdCache!.GetAsync(phone10, cancellationToken).ConfigureAwait(false);
+            accountResponse = await HouseholdCache!.GetAsync(phone10, includeCardService: true, cancellationToken).ConfigureAwait(false);
         }
         catch (ErrorResponse ex)
         {

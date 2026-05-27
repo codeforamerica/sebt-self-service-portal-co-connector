@@ -72,12 +72,12 @@ internal static class PluginCache
     /// </summary>
     internal static CbmsFetchAccountDetailsDelegate BuildFetchDelegate(CbmsSebtApiClient client, string apiBaseUrl)
     {
-        var url = $"{apiBaseUrl}/sebt/get-account-details?ebtCardService=Y";
-
-        return async (phone, ct) =>
+        return async (phone, includeCardService, ct) =>
         {
             try
             {
+                var ebtCardService = includeCardService ? "Y" : "N";
+                var url = $"{apiBaseUrl}/sebt/get-account-details?ebtCardService={ebtCardService}";
                 var request = new GetAccountDetailsRequest { PhnNm = phone };
                 return await client.Sebt.GetAccountDetails.WithUrl(url)
                     .PostAsync(request, cancellationToken: ct)
