@@ -225,7 +225,7 @@ public class ColoradoSummerEbtCaseServiceTests : IDisposable
             piiVisibility,
             IdentityAssuranceLevel.IAL2,
             portalUserId: null,
-            CancellationToken.None);
+            cancellationToken: CancellationToken.None);
 
         // Assert: the fake cache was called with the normalized phone
         await fakeCache.Received(1).GetAsync("3035550199", Arg.Any<CancellationToken>());

@@ -55,21 +55,7 @@ internal static class PluginCache
                 handler,
                 cbmsLogger);
 
-            CbmsFetchAccountDetailsDelegate fetchFromCbms = async (phone, ct) =>
-            {
-                try
-                {
-                    var request = new GetAccountDetailsRequest { PhnNm = phone };
-                    return await cbmsClient.Sebt.GetAccountDetails.PostAsync(request, cancellationToken: ct)
-                        .ConfigureAwait(false);
-                }
-                catch (ErrorResponse ex) when (ex.ResponseStatusCode == 404)
-                {
-                    // CBMS returns 404 when no household is found for the given phone.
-                    // Return null to trigger negative-cache storage.
-                    return null;
-                }
-            };
+            CbmsFetchAccountDetailsDelegate fetchFromCbms = BuildFetchDelegate(cbmsClient, cbmsConnection.ApiBaseUrl);
 
             _instance = ActivatorUtilities.CreateInstance<CbmsHouseholdCache>(
                 hostProvider,
@@ -78,6 +64,32 @@ internal static class PluginCache
 
             return _instance;
         }
+    }
+
+    /// <summary>
+    /// Builds the delegate used to fetch account details from CBMS.
+    /// Extracted for testability; production code calls this via <see cref="GetOrBuild"/>.
+    /// </summary>
+    internal static CbmsFetchAccountDetailsDelegate BuildFetchDelegate(CbmsSebtApiClient client, string apiBaseUrl)
+    {
+        var url = $"{apiBaseUrl}/sebt/get-account-details?ebtCardService=Y";
+
+        return async (phone, ct) =>
+        {
+            try
+            {
+                var request = new GetAccountDetailsRequest { PhnNm = phone };
+                return await client.Sebt.GetAccountDetails.WithUrl(url)
+                    .PostAsync(request, cancellationToken: ct)
+                    .ConfigureAwait(false);
+            }
+            catch (ErrorResponse ex) when (ex.ResponseStatusCode == 404)
+            {
+                // CBMS returns 404 when no household is found for the given phone.
+                // Return null to trigger negative-cache storage.
+                return null;
+            }
+        };
     }
 
     /// <summary>

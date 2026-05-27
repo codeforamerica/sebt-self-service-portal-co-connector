@@ -40,6 +40,7 @@ public class ColoradoSummerEbtCaseService : ColoradoCbmsServiceBase, ISummerEbtC
         PiiVisibility piiVisibility,
         IdentityAssuranceLevel identityAssuranceLevel,
         Guid? portalUserId = null,
+        bool includeCardService = true,
         CancellationToken cancellationToken = default)
     {
         if (identifierType == HouseholdIdentifierType.Email)
@@ -49,6 +50,7 @@ public class ColoradoSummerEbtCaseService : ColoradoCbmsServiceBase, ISummerEbtC
                 piiVisibility,
                 identityAssuranceLevel,
                 portalUserId,
+                includeCardService,
                 cancellationToken).ConfigureAwait(false);
         }
 
@@ -64,6 +66,7 @@ public class ColoradoSummerEbtCaseService : ColoradoCbmsServiceBase, ISummerEbtC
         PiiVisibility piiVisibility,
         IdentityAssuranceLevel identityAssuranceLevel,
         Guid? portalUserId = null,
+        bool includeCardService = true,
         CancellationToken cancellationToken = default)
     {
         return Task.FromResult<HouseholdData?>(null);
@@ -91,6 +94,7 @@ public class ColoradoSummerEbtCaseService : ColoradoCbmsServiceBase, ISummerEbtC
         PiiVisibility piiVisibility,
         IdentityAssuranceLevel identityAssuranceLevel,
         Guid portalUserId,
+        bool includeCardService = true,
         CancellationToken cancellationToken = default)
     {
         return Task.FromResult<HouseholdData?>(null);
