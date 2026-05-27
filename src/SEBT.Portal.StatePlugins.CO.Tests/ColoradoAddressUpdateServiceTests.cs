@@ -56,7 +56,7 @@ public class ColoradoAddressUpdateServiceTests : IDisposable
     {
         var fakeCache = Substitute.For<ICbmsHouseholdCache>();
         var response = DeserializeAccountDetails(accountDetailsJson);
-        fakeCache.GetAsync(Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(response);
+        fakeCache.GetAsync(Arg.Any<string>(), Arg.Any<bool>(), Arg.Any<CancellationToken>()).Returns(response);
         return fakeCache;
     }
 
@@ -380,7 +380,7 @@ public class ColoradoAddressUpdateServiceTests : IDisposable
             CorrelationId = "11174770-a6a1-4949-b216-622e363e872e",
             ResponseStatusCode = 400
         };
-        fakeCache.GetAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
+        fakeCache.GetAsync(Arg.Any<string>(), Arg.Any<bool>(), Arg.Any<CancellationToken>())
             .Returns<GetAccountDetailsResponse?>(_ => throw errorResponse);
         PluginCache.OverrideForTesting(fakeCache);
 
@@ -419,7 +419,7 @@ public class ColoradoAddressUpdateServiceTests : IDisposable
                 }
             ]
         };
-        fakeCache.GetAsync(Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(existingResponse);
+        fakeCache.GetAsync(Arg.Any<string>(), Arg.Any<bool>(), Arg.Any<CancellationToken>()).Returns(existingResponse);
         PluginCache.OverrideForTesting(fakeCache);
 
         var handler = new AddressUpdatePipelineMessageHandler(patchResponseJson: """{"respCd":"00","respMsg":"Success"}""");
@@ -448,7 +448,7 @@ public class ColoradoAddressUpdateServiceTests : IDisposable
     public async Task UpdateAddressAsync_does_not_write_through_on_PATCH_failure()
     {
         var fakeCache = Substitute.For<ICbmsHouseholdCache>();
-        fakeCache.GetAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
+        fakeCache.GetAsync(Arg.Any<string>(), Arg.Any<bool>(), Arg.Any<CancellationToken>())
             .Returns(new GetAccountDetailsResponse
             {
                 StdntEnrollDtls =

@@ -204,7 +204,7 @@ public class ColoradoSummerEbtCaseServiceTests : IDisposable
     {
         // Arrange: inject a fake cache via PluginCache.OverrideForTesting
         var fakeCache = Substitute.For<ICbmsHouseholdCache>();
-        fakeCache.GetAsync("3035550199", Arg.Any<CancellationToken>())
+        fakeCache.GetAsync("3035550199", Arg.Any<bool>(), Arg.Any<CancellationToken>())
             .Returns(new GetAccountDetailsResponse
             {
                 StdntEnrollDtls = new List<GetAccountStudentDetail>
@@ -224,9 +224,10 @@ public class ColoradoSummerEbtCaseServiceTests : IDisposable
             "303-555-0199",
             piiVisibility,
             IdentityAssuranceLevel.IAL2,
-            CancellationToken.None);
+            portalUserId: null,
+            cancellationToken: CancellationToken.None);
 
         // Assert: the fake cache was called with the normalized phone
-        await fakeCache.Received(1).GetAsync("3035550199", Arg.Any<CancellationToken>());
+        await fakeCache.Received(1).GetAsync("3035550199", Arg.Any<bool>(), Arg.Any<CancellationToken>());
     }
 }

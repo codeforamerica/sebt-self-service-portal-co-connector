@@ -45,7 +45,7 @@ internal sealed class CbmsHouseholdCache : ICbmsHouseholdCache
 
     private string KeyFor(string normalizedPhone) => KeyPrefix + _hasher.Hash(normalizedPhone);
 
-    public async Task<GetAccountDetailsResponse?> GetAsync(string normalizedPhone, CancellationToken cancellationToken)
+    public async Task<GetAccountDetailsResponse?> GetAsync(string normalizedPhone, bool includeCardService, CancellationToken cancellationToken)
     {
         var key = KeyFor(normalizedPhone);
         var hybridOptions = new HybridCacheEntryOptions
@@ -56,8 +56,8 @@ internal sealed class CbmsHouseholdCache : ICbmsHouseholdCache
 
         var envelope = await _hybridCache.GetOrCreateAsync(
             key,
-            (Phone: normalizedPhone, Cache: this),
-            (state, ct) => state.Cache.FetchAndWrapAsync(state.Phone, ct),
+            (Phone: normalizedPhone, Cache: this, IncludeCardService: includeCardService),
+            (state, ct) => state.Cache.FetchAndWrapAsync(state.Phone, state.IncludeCardService, ct),
             hybridOptions,
             cancellationToken: cancellationToken).ConfigureAwait(false);
 
@@ -100,9 +100,9 @@ internal sealed class CbmsHouseholdCache : ICbmsHouseholdCache
         => string.IsNullOrEmpty(json) ? null : JsonSerializer.Deserialize<GetAccountDetailsResponse>(json, JsonOptions);
 
     private async ValueTask<CbmsHouseholdCacheEnvelope?> FetchAndWrapAsync(
-        string normalizedPhone, CancellationToken cancellationToken)
+        string normalizedPhone, bool includeCardService, CancellationToken cancellationToken)
     {
-        var response = await _fetchFromCbms(normalizedPhone, cancellationToken).ConfigureAwait(false);
+        var response = await _fetchFromCbms(normalizedPhone, includeCardService, cancellationToken).ConfigureAwait(false);
         var now = DateTimeOffset.UtcNow;
         var isNegative = response?.StdntEnrollDtls is null or { Count: 0 };
 
@@ -131,7 +131,9 @@ internal sealed class CbmsHouseholdCache : ICbmsHouseholdCache
         {
             using var cts = CancellationTokenSource.CreateLinkedTokenSource(_lifetime.ApplicationStopping);
             cts.CancelAfter(_options.BackgroundRefreshTimeout);
-            var fresh = await FetchAndWrapAsync(normalizedPhone, cts.Token).ConfigureAwait(false);
+            // Background refresh has no call-site includeCardService context; always fetch with card data
+            // so the refreshed entry stays consistent with the default (true) behaviour.
+            var fresh = await FetchAndWrapAsync(normalizedPhone, includeCardService: true, cts.Token).ConfigureAwait(false);
             if (fresh is not null)
             {
                 await _hybridCache.SetAsync(

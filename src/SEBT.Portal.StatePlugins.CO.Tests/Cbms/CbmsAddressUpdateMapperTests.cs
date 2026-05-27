@@ -1,3 +1,5 @@
+using System.Text.Json;
+using Microsoft.Kiota.Abstractions.Serialization;
 using SEBT.Portal.StatePlugins.CO.Cbms;
 using SEBT.Portal.StatePlugins.CO.CbmsApi.Models;
 using HouseholdAddress = SEBT.Portal.StatesPlugins.Interfaces.Models.Household.Address;
@@ -40,7 +42,7 @@ public class CbmsAddressUpdateMapperTests
     }
 
     [Fact]
-    public void ToUpdateStudentDetailsRequest_includes_addr_and_cbms_ids_and_guardian_fields()
+    public void ToUpdateStudentDetailsRequest_includes_only_addr_and_cbms_ids()
     {
         var portal = new HouseholdAddress
         {
@@ -62,12 +64,43 @@ public class CbmsAddressUpdateMapperTests
 
         Assert.Equal("88291", body.SebtChldId);
         Assert.Equal("556677", body.SebtAppId);
-        Assert.Equal("Jane", body.GurdFstNm);
-        Assert.Equal("Doe", body.GurdLstNm);
-        Assert.Equal("j@example.com", body.GurdEmailAddr);
+        Assert.Null(body.GurdFstNm);
+        Assert.Null(body.GurdLstNm);
+        Assert.Null(body.GurdEmailAddr);
         Assert.NotNull(body.Addr);
         Assert.Equal("456 Oak", body.Addr!.AddrLn1);
         Assert.Equal("80203", body.Addr.Zip);
+    }
+
+    [Fact]
+    public async Task ToUpdateStudentDetailsRequest_omits_guardian_fields_from_serialized_json()
+    {
+        var body = CbmsAddressUpdateMapper.ToUpdateStudentDetailsRequest(
+            new HouseholdAddress
+            {
+                StreetAddress1 = "456 Oak",
+                City = "Denver",
+                State = "CO",
+                PostalCode = "80203"
+            },
+            new GetAccountStudentDetail
+            {
+                SebtChldId = 1,
+                SebtAppId = 2,
+                GurdFstNm = "Jane",
+                GurdLstNm = "Doe",
+                GurdEmailAddr = "j@example.com"
+            });
+
+        var json = await KiotaJsonSerializer.SerializeAsStringAsync(body);
+        using var doc = JsonDocument.Parse(json);
+        var root = doc.RootElement;
+
+        Assert.False(root.TryGetProperty("gurdFstNm", out _));
+        Assert.False(root.TryGetProperty("gurdLstNm", out _));
+        Assert.False(root.TryGetProperty("gurdEmailAddr", out _));
+        Assert.Equal("1", root.GetProperty("sebtChldId").GetString());
+        Assert.Equal("2", root.GetProperty("sebtAppId").GetString());
     }
 
     [Fact]

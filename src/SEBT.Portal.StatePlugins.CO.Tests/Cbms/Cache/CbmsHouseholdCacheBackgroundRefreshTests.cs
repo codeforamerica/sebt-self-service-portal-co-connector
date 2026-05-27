@@ -45,7 +45,7 @@ public class CbmsHouseholdCacheBackgroundRefreshTests
 
         fetch.NextResponse = Populated("v2");
         fetch.CallCount = 0;
-        var result = await sut.GetAsync(Phone, CancellationToken.None);
+        var result = await sut.GetAsync(Phone, true, CancellationToken.None);
 
         // Stale read returns v1 immediately
         Assert.NotNull(result);
@@ -77,7 +77,7 @@ public class CbmsHouseholdCacheBackgroundRefreshTests
         fetch.NextResponse = Populated("v2");
         fetch.CallCount = 0;
 
-        await sut.GetAsync(Phone, CancellationToken.None);
+        await sut.GetAsync(Phone, true, CancellationToken.None);
 
         // Wait briefly for background task to complete.
         var deadline = DateTimeOffset.UtcNow.AddSeconds(2);
@@ -109,7 +109,7 @@ public class CbmsHouseholdCacheBackgroundRefreshTests
         await hybrid.SetAsync("co:cbms:hash", staleEnvelope);
 
         failingFetch.CallCount = 0;
-        var result = await sut.GetAsync(Phone, CancellationToken.None);
+        var result = await sut.GetAsync(Phone, true, CancellationToken.None);
 
         // Stale value still returned synchronously.
         Assert.Equal("v1", result!.StdntEnrollDtls![0].GurdFstNm);

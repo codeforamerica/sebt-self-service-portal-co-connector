@@ -5,6 +5,7 @@ using Microsoft.Extensions.Options;
 using SEBT.Portal.StatePlugins.CO.CbmsApi;
 using SEBT.Portal.StatePlugins.CO.CbmsApi.Models;
 using SEBT.Portal.StatePlugins.CO.CbmsApi.Mocks;
+using SEBT.Portal.StatePlugins.CO.CbmsApi.Sebt.GetAccountDetails;
 
 namespace SEBT.Portal.StatePlugins.CO.Cbms.Cache;
 
@@ -55,21 +56,7 @@ internal static class PluginCache
                 handler,
                 cbmsLogger);
 
-            CbmsFetchAccountDetailsDelegate fetchFromCbms = async (phone, ct) =>
-            {
-                try
-                {
-                    var request = new GetAccountDetailsRequest { PhnNm = phone };
-                    return await cbmsClient.Sebt.GetAccountDetails.PostAsync(request, cancellationToken: ct)
-                        .ConfigureAwait(false);
-                }
-                catch (ErrorResponse ex) when (ex.ResponseStatusCode == 404)
-                {
-                    // CBMS returns 404 when no household is found for the given phone.
-                    // Return null to trigger negative-cache storage.
-                    return null;
-                }
-            };
+            CbmsFetchAccountDetailsDelegate fetchFromCbms = BuildFetchDelegate(cbmsClient);
 
             _instance = ActivatorUtilities.CreateInstance<CbmsHouseholdCache>(
                 hostProvider,
@@ -78,6 +65,33 @@ internal static class PluginCache
 
             return _instance;
         }
+    }
+
+    /// <summary>
+    /// Builds the delegate used to fetch account details from CBMS.
+    /// Extracted for testability; production code calls this via <see cref="GetOrBuild"/>.
+    /// </summary>
+    internal static CbmsFetchAccountDetailsDelegate BuildFetchDelegate(CbmsSebtApiClient client)
+    {
+        return async (phone, includeCardService, ct) =>
+        {
+            try
+            {
+                var request = new GetAccountDetailsRequest { PhnNm = phone };
+                var ebtCardService = includeCardService
+                    ? PostEbtCardServiceQueryParameterType.Y
+                    : PostEbtCardServiceQueryParameterType.N;
+                return await client.Sebt.GetAccountDetails
+                    .PostAsync(request, x => x.QueryParameters.EbtCardService = ebtCardService, cancellationToken: ct)
+                    .ConfigureAwait(false);
+            }
+            catch (ErrorResponse ex) when (ex.ResponseStatusCode == 404)
+            {
+                // CBMS returns 404 when no household is found for the given phone.
+                // Return null to trigger negative-cache storage.
+                return null;
+            }
+        };
     }
 
     /// <summary>

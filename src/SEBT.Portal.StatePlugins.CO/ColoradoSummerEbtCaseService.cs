@@ -39,13 +39,23 @@ public class ColoradoSummerEbtCaseService : ColoradoCbmsServiceBase, ISummerEbtC
         string identifierValue,
         PiiVisibility piiVisibility,
         IdentityAssuranceLevel identityAssuranceLevel,
+        Guid? portalUserId = null,
+        bool includeCardService = true,
         CancellationToken cancellationToken = default)
     {
         if (identifierType == HouseholdIdentifierType.Email)
-            return await GetHouseholdByGuardianEmailAsync(identifierValue, piiVisibility, identityAssuranceLevel, cancellationToken).ConfigureAwait(false);
+        {
+            return await GetHouseholdByGuardianEmailAsync(
+                identifierValue,
+                piiVisibility,
+                identityAssuranceLevel,
+                portalUserId,
+                includeCardService,
+                cancellationToken).ConfigureAwait(false);
+        }
 
         if (identifierType == HouseholdIdentifierType.Phone)
-            return await GetHouseholdByPhoneAsync(identifierValue, piiVisibility, cancellationToken).ConfigureAwait(false);
+            return await GetHouseholdByPhoneAsync(identifierValue, piiVisibility, includeCardService, cancellationToken).ConfigureAwait(false);
 
         return null;
     }
@@ -55,6 +65,8 @@ public class ColoradoSummerEbtCaseService : ColoradoCbmsServiceBase, ISummerEbtC
         string guardianEmail,
         PiiVisibility piiVisibility,
         IdentityAssuranceLevel identityAssuranceLevel,
+        Guid? portalUserId = null,
+        bool includeCardService = true,
         CancellationToken cancellationToken = default)
     {
         return Task.FromResult<HouseholdData?>(null);
@@ -90,6 +102,7 @@ public class ColoradoSummerEbtCaseService : ColoradoCbmsServiceBase, ISummerEbtC
     private async Task<HouseholdData?> GetHouseholdByPhoneAsync(
         string phoneNumber,
         PiiVisibility piiVisibility,
+        bool includeCardService,
         CancellationToken cancellationToken)
     {
         var options = CbmsOptionsHelper.GetCbmsOptions(_configuration);
@@ -107,7 +120,7 @@ public class ColoradoSummerEbtCaseService : ColoradoCbmsServiceBase, ISummerEbtC
         GetAccountDetailsResponse? response;
         try
         {
-            response = await HouseholdCache!.GetAsync(normalizedPhone, cancellationToken).ConfigureAwait(false);
+            response = await HouseholdCache!.GetAsync(normalizedPhone, includeCardService, cancellationToken).ConfigureAwait(false);
         }
         catch (ErrorResponse ex) when (ex.ResponseStatusCode == 404)
         {

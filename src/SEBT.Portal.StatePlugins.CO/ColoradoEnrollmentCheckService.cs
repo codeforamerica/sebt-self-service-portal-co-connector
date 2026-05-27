@@ -237,9 +237,9 @@ public class ColoradoEnrollmentCheckService : ColoradoCbmsServiceBase, IEnrollme
             results.Add(new ChildCheckResult
             {
                 CheckId = child.CheckId,
-                FirstName = child.FirstName,
-                LastName = child.LastName,
-                DateOfBirth = child.DateOfBirth,
+                FirstName = best.StdFstNm ?? child.FirstName,
+                LastName = best.StdLstNm ?? child.LastName,
+                DateOfBirth = TryParseDob(best.StdDob) ?? child.DateOfBirth,
                 Status = status,
                 MatchConfidence = best.MtchCnfd,
                 StatusMessage = sebtEligSts
@@ -260,4 +260,9 @@ public class ColoradoEnrollmentCheckService : ColoradoCbmsServiceBase, IEnrollme
             _ => EnrollmentStatus.NonMatch
         };
     }
+
+    private static DateOnly? TryParseDob(string? stdDob) =>
+        DateOnly.TryParseExact(stdDob, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var date)
+            ? date
+            : null;
 }

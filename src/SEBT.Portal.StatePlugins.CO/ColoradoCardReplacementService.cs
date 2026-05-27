@@ -115,7 +115,7 @@ public class ColoradoCardReplacementService : ColoradoCbmsServiceBase, ICardRepl
         GetAccountDetailsResponse? accountResponse;
         try
         {
-            accountResponse = await HouseholdCache!.GetAsync(phone10, cancellationToken).ConfigureAwait(false);
+            accountResponse = await HouseholdCache!.GetAsync(phone10, includeCardService: true, cancellationToken).ConfigureAwait(false);
         }
         catch (ErrorResponse ex)
         {
@@ -193,6 +193,10 @@ public class ColoradoCardReplacementService : ColoradoCbmsServiceBase, ICardRepl
             _logger.LogInformation(
                 "CBMS CardReplacement: requesting new card for {StudentCount} student(s) (PATCH /sebt/update-std-dtls)",
                 updateBodies.Count);
+            for (var i = 0; i < updateBodies.Count; i++)
+            {
+                _logger.LogInformation("CBMS CardReplacement: body[{Index}] {Fields}", i, FormatPatchBodyForLog(updateBodies[i]));
+            }
             var patchSw = System.Diagnostics.Stopwatch.StartNew();
             var updateResponse = await client.Sebt.UpdateStdDtls.PatchAsync(updateBodies, cancellationToken: cancellationToken);
             patchSw.Stop();

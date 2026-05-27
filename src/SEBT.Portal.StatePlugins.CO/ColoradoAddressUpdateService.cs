@@ -118,7 +118,7 @@ public class ColoradoAddressUpdateService : ColoradoCbmsServiceBase, IAddressUpd
         GetAccountDetailsResponse? accountResponse;
         try
         {
-            accountResponse = await HouseholdCache!.GetAsync(phone10, cancellationToken).ConfigureAwait(false);
+            accountResponse = await HouseholdCache!.GetAsync(phone10, includeCardService: true, cancellationToken).ConfigureAwait(false);
         }
         catch (ErrorResponse ex)
         {
@@ -180,6 +180,10 @@ public class ColoradoAddressUpdateService : ColoradoCbmsServiceBase, IAddressUpd
             _logger.LogInformation(
                 "CBMS AddressUpdate: updating {StudentCount} student(s) (PATCH /sebt/update-std-dtls)",
                 updateBodies.Count);
+            for (var i = 0; i < updateBodies.Count; i++)
+            {
+                _logger.LogInformation("CBMS AddressUpdate: body[{Index}] {Fields}", i, FormatPatchBodyForLog(updateBodies[i]));
+            }
             var updateResponse = await client.Sebt.UpdateStdDtls.PatchAsync(updateBodies, cancellationToken: cancellationToken);
             _logger.LogInformation(
                 "CBMS AddressUpdate: update-std-dtls completed, respCd={RespCd}",

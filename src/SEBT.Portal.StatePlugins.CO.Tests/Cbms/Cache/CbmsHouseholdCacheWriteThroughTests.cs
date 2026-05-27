@@ -36,7 +36,7 @@ public class CbmsHouseholdCacheWriteThroughTests
         var newResponse = Populated("written");
         await sut.SetAsync(Phone, newResponse, CancellationToken.None);
 
-        var read = await sut.GetAsync(Phone, CancellationToken.None);
+        var read = await sut.GetAsync(Phone, true, CancellationToken.None);
 
         // Round-trips through JSON, so we get a structurally-equal copy rather than the same instance.
         Assert.NotNull(read);
@@ -58,11 +58,11 @@ public class CbmsHouseholdCacheWriteThroughTests
             hybrid, hasher, lifetime, NullLoggerFactory.Instance,
             Options.Create(new CbmsHouseholdCacheOptions()),
             fetch.Delegate);
-        await sut.GetAsync(Phone, CancellationToken.None);
+        await sut.GetAsync(Phone, true, CancellationToken.None);
         Assert.Equal(1, fetch.CallCount);
 
         await sut.InvalidateAsync(Phone, CancellationToken.None);
-        await sut.GetAsync(Phone, CancellationToken.None);
+        await sut.GetAsync(Phone, true, CancellationToken.None);
 
         Assert.Equal(2, fetch.CallCount);
     }

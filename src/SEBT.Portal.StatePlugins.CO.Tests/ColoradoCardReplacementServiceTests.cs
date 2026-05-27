@@ -55,7 +55,7 @@ public class ColoradoCardReplacementServiceTests : IDisposable
     {
         var fakeCache = Substitute.For<ICbmsHouseholdCache>();
         var response = DeserializeAccountDetails(accountDetailsJson);
-        fakeCache.GetAsync(Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(response);
+        fakeCache.GetAsync(Arg.Any<string>(), Arg.Any<bool>(), Arg.Any<CancellationToken>()).Returns(response);
         return fakeCache;
     }
 
@@ -67,7 +67,7 @@ public class ColoradoCardReplacementServiceTests : IDisposable
     private static ICbmsHouseholdCache BuildCacheWithMatchingCwin(string cwin)
     {
         var fakeCache = Substitute.For<ICbmsHouseholdCache>();
-        fakeCache.GetAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
+        fakeCache.GetAsync(Arg.Any<string>(), Arg.Any<bool>(), Arg.Any<CancellationToken>())
             .Returns(BuildAccountDetailsWithMatchingCwin(cwin));
         return fakeCache;
     }
@@ -428,7 +428,7 @@ public class ColoradoCardReplacementServiceTests : IDisposable
             CorrelationId = "11174770-a6a1-4949-b216-622e363e872e",
             ResponseStatusCode = 400
         };
-        fakeCache.GetAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
+        fakeCache.GetAsync(Arg.Any<string>(), Arg.Any<bool>(), Arg.Any<CancellationToken>())
             .Returns<GetAccountDetailsResponse?>(_ => throw errorResponse);
         PluginCache.OverrideForTesting(fakeCache);
 
@@ -466,7 +466,7 @@ public class ColoradoCardReplacementServiceTests : IDisposable
             CorrelationId = "x",
             ResponseStatusCode = 404
         };
-        fakeCache.GetAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
+        fakeCache.GetAsync(Arg.Any<string>(), Arg.Any<bool>(), Arg.Any<CancellationToken>())
             .Returns<GetAccountDetailsResponse?>(_ => throw errorResponse);
         PluginCache.OverrideForTesting(fakeCache);
 
@@ -508,7 +508,7 @@ public class ColoradoCardReplacementServiceTests : IDisposable
         });
 
         Assert.True(result.IsSuccess);
-        await fakeCache.Received(1).GetAsync(Arg.Any<string>(), Arg.Any<CancellationToken>());
+        await fakeCache.Received(1).GetAsync(Arg.Any<string>(), Arg.Any<bool>(), Arg.Any<CancellationToken>());
     }
 
     [Fact]

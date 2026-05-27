@@ -44,7 +44,7 @@ public class CbmsHouseholdCacheReadTests
         var (sut, _, fetch) = Build();
         fetch.NextResponse = Populated();
 
-        var result = await sut.GetAsync(Phone, CancellationToken.None);
+        var result = await sut.GetAsync(Phone, true, CancellationToken.None);
 
         Assert.NotNull(result);
         Assert.Equal(1, fetch.CallCount);
@@ -55,10 +55,10 @@ public class CbmsHouseholdCacheReadTests
     {
         var (sut, _, fetch) = Build();
         fetch.NextResponse = Populated();
-        await sut.GetAsync(Phone, CancellationToken.None); // primes
+        await sut.GetAsync(Phone, true, CancellationToken.None); // primes
         fetch.CallCount = 0;
 
-        await sut.GetAsync(Phone, CancellationToken.None);
+        await sut.GetAsync(Phone, true, CancellationToken.None);
 
         Assert.Equal(0, fetch.CallCount);
     }
@@ -69,7 +69,7 @@ public class CbmsHouseholdCacheReadTests
         var (sut, _, fetch) = Build();
         fetch.NextResponse = Empty();
 
-        var result = await sut.GetAsync(Phone, CancellationToken.None);
+        var result = await sut.GetAsync(Phone, true, CancellationToken.None);
 
         Assert.Null(result);
     }
@@ -80,7 +80,7 @@ public class CbmsHouseholdCacheReadTests
         var (sut, _, fetch) = Build();
         fetch.NextResponse = null;
 
-        var result = await sut.GetAsync(Phone, CancellationToken.None);
+        var result = await sut.GetAsync(Phone, true, CancellationToken.None);
 
         Assert.Null(result);
     }
@@ -90,10 +90,10 @@ public class CbmsHouseholdCacheReadTests
     {
         var (sut, _, fetch) = Build(new CbmsHouseholdCacheOptions { NegativeCacheSeconds = 60 });
         fetch.NextResponse = Empty();
-        await sut.GetAsync(Phone, CancellationToken.None);
+        await sut.GetAsync(Phone, true, CancellationToken.None);
         fetch.CallCount = 0;
 
-        await sut.GetAsync(Phone, CancellationToken.None);
+        await sut.GetAsync(Phone, true, CancellationToken.None);
 
         Assert.Equal(0, fetch.CallCount);
     }
@@ -120,7 +120,7 @@ public class CbmsHouseholdCacheReadTests
         var (sut, hybrid, fetch) = Build(options);
         fetch.NextResponse = Empty();
 
-        var result = await sut.GetAsync(Phone, CancellationToken.None);
+        var result = await sut.GetAsync(Phone, true, CancellationToken.None);
 
         Assert.Null(result);
         var key = "co:cbms:hash:" + Phone;
@@ -150,7 +150,7 @@ public class CbmsHouseholdCacheReadTests
         var (sut, hybrid, fetch) = Build(options);
         fetch.NextResponse = Populated();
 
-        await sut.GetAsync(Phone, CancellationToken.None);
+        await sut.GetAsync(Phone, true, CancellationToken.None);
 
         var key = "co:cbms:hash:" + Phone;
         var latestOpts = hybrid.LatestOptionsFor(key);
@@ -186,7 +186,7 @@ public class CbmsHouseholdCacheReadTests
         // Factory should not be invoked — we have a (negative) cached entry.
         fetch.NextResponse = Populated();
 
-        var result = await sut.GetAsync(Phone, CancellationToken.None);
+        var result = await sut.GetAsync(Phone, true, CancellationToken.None);
 
         Assert.Null(result);
         Assert.Equal(0, fetch.CallCount);

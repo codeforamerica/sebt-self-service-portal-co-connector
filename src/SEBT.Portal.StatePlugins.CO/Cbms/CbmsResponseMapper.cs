@@ -88,7 +88,7 @@ internal static class CbmsResponseMapper
             EbtCaseNumber = cbmsCaseId,
             CaseDisplayNumber = displayReferenceId,
             EbtCardLastFour = s.EbtCardLastFour,
-            EbtCardStatus = MapCardStatus(s.EbtCardSts, logger).ToString(),
+            EbtCardStatus = MapCardStatus(s.EbtCardSts, logger),
             EbtCardIssueDate = ParseDateOnly(s.CardIssDt),
             EbtCardBalance = s.CardBal.HasValue ? (decimal)s.CardBal.Value : null,
             BenefitAvailableDate = ParseDateOnly(s.BenAvalDt),
@@ -191,20 +191,28 @@ internal static class CbmsResponseMapper
     private static CardStatus MapCardStatus(string? ebtCardSts, ILogger? logger = null)
     {
         if (string.IsNullOrEmpty(ebtCardSts)) return CardStatus.Unknown;
-        switch (ebtCardSts.ToUpperInvariant())
+        return ebtCardSts.ToUpperInvariant() switch
         {
-            case "REQUESTED": return CardStatus.Requested;
-            case "MAILED": return CardStatus.Mailed;
-            case "ACTIVE": return CardStatus.Active;
-            case "DEACTIVATED": return CardStatus.Deactivated;
-            default:
-                // Log at Information so operators can see new CBMS tokens as they appear.
-                // Policy (SelfServiceRules.AllowedCardStatuses) is evaluated on the portal side.
-                logger?.LogInformation(
-                    "CBMS returned unmapped ebtCardSts token {Token}; falling back to CardStatus.Unknown",
-                    ebtCardSts);
-                return CardStatus.Unknown;
-        }
+            "ACTIVE" => CardStatus.Active,
+            "LOST" => CardStatus.Lost,
+            "STOLEN" => CardStatus.Stolen,
+            "DAMAGED" => CardStatus.Damaged,
+            "STATUSED BY STATE, NO REISSUE" => CardStatus.DeactivatedByState,
+            "DEACTIVATED BY STATE" => CardStatus.DeactivatedByState,
+            "NOT ACTIVATED" => CardStatus.NotActivated,
+            "FROZEN" => CardStatus.Frozen,
+            "UNDELIVERABLE" => CardStatus.Undeliverable,
+            _ => LogAndReturnUnknown(ebtCardSts, logger)
+        };
+    }
+
+    private static CardStatus LogAndReturnUnknown(string raw, ILogger? logger)
+    {
+        logger?.LogError(
+            "CBMS returned unmapped ebtCardSts token {Token}; falling back to CardStatus.Unknown. " +
+            "If this token represents a real status, add it to the status mapping table.",
+            raw);
+        return CardStatus.Unknown;
     }
 
     private static DateOnly? ParseDateOnly(string? value)
