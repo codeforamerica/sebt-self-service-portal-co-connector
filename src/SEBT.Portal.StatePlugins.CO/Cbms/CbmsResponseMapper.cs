@@ -210,7 +210,7 @@ internal static class CbmsResponseMapper
     {
         logger?.LogError(
             "CBMS returned unmapped ebtCardSts token {Token}; falling back to CardStatus.Unknown. " +
-            "If this token represents a real status, add it to the DC-95 mapping table.",
+            "If this token represents a real status, add it to the status mapping table.",
             raw);
         return CardStatus.Unknown;
     }
