@@ -9,4 +9,5 @@ namespace SEBT.Portal.StatePlugins.CO.Cbms.Cache;
 /// </summary>
 internal delegate Task<GetAccountDetailsResponse?> CbmsFetchAccountDetailsDelegate(
     string normalizedPhone,
+    bool includeCardService,
     CancellationToken cancellationToken);

@@ -23,7 +23,7 @@ public class CbmsHouseholdCacheStampedeTests
 
         var slowFetchTcs = new TaskCompletionSource<GetAccountDetailsResponse?>();
         var fetchCalls = 0;
-        CbmsFetchAccountDetailsDelegate fetch = async (_, _) =>
+        CbmsFetchAccountDetailsDelegate fetch = async (_, _, _) =>
         {
             Interlocked.Increment(ref fetchCalls);
             return await slowFetchTcs.Task;
@@ -42,7 +42,7 @@ public class CbmsHouseholdCacheStampedeTests
 
         // Fire 50 concurrent reads; each should return the stale envelope and (collectively) trigger only 1 fetch.
         var tasks = Enumerable.Range(0, 50)
-            .Select(_ => sut.GetAsync(Phone, CancellationToken.None))
+            .Select(_ => sut.GetAsync(Phone, true, CancellationToken.None))
             .ToArray();
         await Task.WhenAll(tasks);
 

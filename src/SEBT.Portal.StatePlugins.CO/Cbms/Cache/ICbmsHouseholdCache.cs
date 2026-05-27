@@ -10,7 +10,7 @@ internal interface ICbmsHouseholdCache
     /// cached value AND triggers a coalesced background refresh.
     /// Returns null when CBMS reports no household for the normalized phone.
     /// </summary>
-    Task<GetAccountDetailsResponse?> GetAsync(string normalizedPhone, CancellationToken cancellationToken);
+    Task<GetAccountDetailsResponse?> GetAsync(string normalizedPhone, bool includeCardService, CancellationToken cancellationToken);
 
     /// <summary>
     /// Write-through: store the (locally-mutated) response after a successful PATCH.

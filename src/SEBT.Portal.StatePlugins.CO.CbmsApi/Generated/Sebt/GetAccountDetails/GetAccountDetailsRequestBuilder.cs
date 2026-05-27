@@ -22,7 +22,7 @@ namespace SEBT.Portal.StatePlugins.CO.CbmsApi.Sebt.GetAccountDetails
         /// </summary>
         /// <param name="pathParameters">Path parameters for the request</param>
         /// <param name="requestAdapter">The request adapter to use to execute the requests.</param>
-        public GetAccountDetailsRequestBuilder(Dictionary<string, object> pathParameters, IRequestAdapter requestAdapter) : base(requestAdapter, "{+baseurl}/sebt/get-account-details", pathParameters)
+        public GetAccountDetailsRequestBuilder(Dictionary<string, object> pathParameters, IRequestAdapter requestAdapter) : base(requestAdapter, "{+baseurl}/sebt/get-account-details{?ebtCardService*}", pathParameters)
         {
         }
         /// <summary>
@@ -30,7 +30,7 @@ namespace SEBT.Portal.StatePlugins.CO.CbmsApi.Sebt.GetAccountDetails
         /// </summary>
         /// <param name="rawUrl">The raw URL to use for the request builder.</param>
         /// <param name="requestAdapter">The request adapter to use to execute the requests.</param>
-        public GetAccountDetailsRequestBuilder(string rawUrl, IRequestAdapter requestAdapter) : base(requestAdapter, "{+baseurl}/sebt/get-account-details", rawUrl)
+        public GetAccountDetailsRequestBuilder(string rawUrl, IRequestAdapter requestAdapter) : base(requestAdapter, "{+baseurl}/sebt/get-account-details{?ebtCardService*}", rawUrl)
         {
         }
         /// <summary>
@@ -45,11 +45,11 @@ namespace SEBT.Portal.StatePlugins.CO.CbmsApi.Sebt.GetAccountDetails
         /// <exception cref="global::SEBT.Portal.StatePlugins.CO.CbmsApi.Models.ErrorResponse">When receiving a 500 status code</exception>
 #if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
 #nullable enable
-        public async Task<global::SEBT.Portal.StatePlugins.CO.CbmsApi.Models.GetAccountDetailsResponse?> PostAsync(global::SEBT.Portal.StatePlugins.CO.CbmsApi.Models.GetAccountDetailsRequest body, Action<RequestConfiguration<DefaultQueryParameters>>? requestConfiguration = default, CancellationToken cancellationToken = default)
+        public async Task<global::SEBT.Portal.StatePlugins.CO.CbmsApi.Models.GetAccountDetailsResponse?> PostAsync(global::SEBT.Portal.StatePlugins.CO.CbmsApi.Models.GetAccountDetailsRequest body, Action<RequestConfiguration<global::SEBT.Portal.StatePlugins.CO.CbmsApi.Sebt.GetAccountDetails.GetAccountDetailsRequestBuilder.GetAccountDetailsRequestBuilderPostQueryParameters>>? requestConfiguration = default, CancellationToken cancellationToken = default)
         {
 #nullable restore
 #else
-        public async Task<global::SEBT.Portal.StatePlugins.CO.CbmsApi.Models.GetAccountDetailsResponse> PostAsync(global::SEBT.Portal.StatePlugins.CO.CbmsApi.Models.GetAccountDetailsRequest body, Action<RequestConfiguration<DefaultQueryParameters>> requestConfiguration = default, CancellationToken cancellationToken = default)
+        public async Task<global::SEBT.Portal.StatePlugins.CO.CbmsApi.Models.GetAccountDetailsResponse> PostAsync(global::SEBT.Portal.StatePlugins.CO.CbmsApi.Models.GetAccountDetailsRequest body, Action<RequestConfiguration<global::SEBT.Portal.StatePlugins.CO.CbmsApi.Sebt.GetAccountDetails.GetAccountDetailsRequestBuilder.GetAccountDetailsRequestBuilderPostQueryParameters>> requestConfiguration = default, CancellationToken cancellationToken = default)
         {
 #endif
             if(ReferenceEquals(body, null)) throw new ArgumentNullException(nameof(body));
@@ -70,11 +70,11 @@ namespace SEBT.Portal.StatePlugins.CO.CbmsApi.Sebt.GetAccountDetails
         /// <param name="requestConfiguration">Configuration for the request such as headers, query parameters, and middleware options.</param>
 #if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
 #nullable enable
-        public RequestInformation ToPostRequestInformation(global::SEBT.Portal.StatePlugins.CO.CbmsApi.Models.GetAccountDetailsRequest body, Action<RequestConfiguration<DefaultQueryParameters>>? requestConfiguration = default)
+        public RequestInformation ToPostRequestInformation(global::SEBT.Portal.StatePlugins.CO.CbmsApi.Models.GetAccountDetailsRequest body, Action<RequestConfiguration<global::SEBT.Portal.StatePlugins.CO.CbmsApi.Sebt.GetAccountDetails.GetAccountDetailsRequestBuilder.GetAccountDetailsRequestBuilderPostQueryParameters>>? requestConfiguration = default)
         {
 #nullable restore
 #else
-        public RequestInformation ToPostRequestInformation(global::SEBT.Portal.StatePlugins.CO.CbmsApi.Models.GetAccountDetailsRequest body, Action<RequestConfiguration<DefaultQueryParameters>> requestConfiguration = default)
+        public RequestInformation ToPostRequestInformation(global::SEBT.Portal.StatePlugins.CO.CbmsApi.Models.GetAccountDetailsRequest body, Action<RequestConfiguration<global::SEBT.Portal.StatePlugins.CO.CbmsApi.Sebt.GetAccountDetails.GetAccountDetailsRequestBuilder.GetAccountDetailsRequestBuilderPostQueryParameters>> requestConfiguration = default)
         {
 #endif
             if(ReferenceEquals(body, null)) throw new ArgumentNullException(nameof(body));
@@ -92,6 +92,15 @@ namespace SEBT.Portal.StatePlugins.CO.CbmsApi.Sebt.GetAccountDetails
         public global::SEBT.Portal.StatePlugins.CO.CbmsApi.Sebt.GetAccountDetails.GetAccountDetailsRequestBuilder WithUrl(string rawUrl)
         {
             return new global::SEBT.Portal.StatePlugins.CO.CbmsApi.Sebt.GetAccountDetails.GetAccountDetailsRequestBuilder(rawUrl, RequestAdapter);
+        }
+        /// <summary>
+        /// Retrieves SEBT card balances, benefits availability and guardian contact information.
+        /// </summary>
+        [global::System.CodeDom.Compiler.GeneratedCode("Kiota", "1.0.0")]
+        public partial class GetAccountDetailsRequestBuilderPostQueryParameters 
+        {
+            [QueryParameter("ebtCardService")]
+            public global::SEBT.Portal.StatePlugins.CO.CbmsApi.Sebt.GetAccountDetails.PostEbtCardServiceQueryParameterType? EbtCardService { get; set; }
         }
     }
 }
