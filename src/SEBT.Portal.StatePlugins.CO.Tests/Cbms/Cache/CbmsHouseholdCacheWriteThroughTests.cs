@@ -68,6 +68,34 @@ public class CbmsHouseholdCacheWriteThroughTests
     }
 
     [Fact]
+    public async Task SetAsync_invalidates_shell_entry_so_subsequent_shell_read_refetches()
+    {
+        var hybrid = new InMemoryHybridCache();
+        var hasher = Substitute.For<IHMACSHA256Hasher>();
+        hasher.Hash(Arg.Any<string>()).Returns("hash");
+        var lifetime = Substitute.For<IHostApplicationLifetime>();
+        lifetime.ApplicationStopping.Returns(CancellationToken.None);
+        var fetch = new FakeFetch { NextResponse = Populated("fetched") };
+        var sut = new CbmsHouseholdCache(
+            hybrid, hasher, lifetime, NullLoggerFactory.Instance,
+            Options.Create(new CbmsHouseholdCacheOptions()),
+            fetch.Delegate);
+
+        await sut.GetAsync(Phone, includeCardService: false, CancellationToken.None);
+        Assert.True(hybrid.TryGet<CbmsHouseholdCacheEnvelope?>("co:cbms:hash:shell", out _));
+
+        await sut.SetAsync(Phone, Populated("written"), CancellationToken.None);
+
+        Assert.False(hybrid.TryGet<CbmsHouseholdCacheEnvelope?>("co:cbms:hash:shell", out _));
+        Assert.True(hybrid.TryGet<CbmsHouseholdCacheEnvelope?>("co:cbms:hash:full", out _));
+
+        fetch.NextResponse = Populated("refetched-shell");
+        await sut.GetAsync(Phone, includeCardService: false, CancellationToken.None);
+
+        Assert.Equal(2, fetch.CallCount);
+    }
+
+    [Fact]
     public async Task SetAsync_tripwire_falls_back_to_invalidate_when_cache_write_throws()
     {
         var hybrid = new ThrowingHybridCache();

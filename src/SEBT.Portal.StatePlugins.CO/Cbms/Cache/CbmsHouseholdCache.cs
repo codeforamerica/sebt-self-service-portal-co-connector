@@ -184,6 +184,12 @@ internal sealed class CbmsHouseholdCache : ICbmsHouseholdCache
                     LocalCacheExpiration = _options.LocalCacheExpiration,
                 },
                 cancellationToken: cancellationToken).ConfigureAwait(false);
+
+            // Write-through updates the full payload. Drop the shell entry so
+            // deferred dashboard reads (ebtCardService=N).
+            await _hybridCache.RemoveAsync(
+                KeyFor(normalizedPhone, includeCardService: false),
+                cancellationToken).ConfigureAwait(false);
         }
         catch (Exception ex)
         {
