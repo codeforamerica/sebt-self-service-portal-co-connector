@@ -31,7 +31,7 @@ public class CbmsHouseholdCacheKeyHashingTests
 
         await sut.GetAsync(Phone, true, CancellationToken.None);
 
-        Assert.True(hybrid.TryGet<CbmsHouseholdCacheEnvelope?>("co:cbms:deadbeef", out _));
+        Assert.True(hybrid.TryGet<CbmsHouseholdCacheEnvelope?>("co:cbms:deadbeef:full", out _));
     }
 
     [Fact]
@@ -74,5 +74,44 @@ public class CbmsHouseholdCacheKeyHashingTests
         await sut.GetAsync(Phone, true, CancellationToken.None);
 
         Assert.DoesNotContain(hybrid.Keys, k => k.Contains(Phone));
+    }
+
+    [Fact]
+    public async Task GetAsync_uses_distinct_cache_keys_for_shell_vs_full_payload()
+    {
+        var hybrid = new InMemoryHybridCache();
+        var hasher = Substitute.For<IHMACSHA256Hasher>();
+        hasher.Hash(Phone).Returns("abc123");
+        var lifetime = Substitute.For<IHostApplicationLifetime>();
+        lifetime.ApplicationStopping.Returns(CancellationToken.None);
+
+        var fetchCount = 0;
+        CbmsFetchAccountDetailsDelegate fetch = (_, includeCards, _) =>
+        {
+            fetchCount++;
+            return Task.FromResult<GetAccountDetailsResponse?>(
+                new()
+                {
+                    StdntEnrollDtls = new()
+                    {
+                        new GetAccountStudentDetail
+                        {
+                            EbtCardLastFour = includeCards ? "1234" : null
+                        }
+                    }
+                });
+        };
+
+        var sut = new CbmsHouseholdCache(
+            hybrid, hasher, lifetime, NullLoggerFactory.Instance,
+            Options.Create(new CbmsHouseholdCacheOptions()),
+            fetch);
+
+        await sut.GetAsync(Phone, includeCardService: false, CancellationToken.None);
+        await sut.GetAsync(Phone, includeCardService: true, CancellationToken.None);
+
+        Assert.Equal(2, fetchCount);
+        Assert.True(hybrid.TryGet<CbmsHouseholdCacheEnvelope?>("co:cbms:abc123:shell", out _));
+        Assert.True(hybrid.TryGet<CbmsHouseholdCacheEnvelope?>("co:cbms:abc123:full", out _));
     }
 }

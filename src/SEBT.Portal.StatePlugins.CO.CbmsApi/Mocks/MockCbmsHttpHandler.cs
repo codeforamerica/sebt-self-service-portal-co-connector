@@ -58,6 +58,11 @@ public sealed class MockCbmsHttpHandler : HttpMessageHandler
             var body = await request.Content!.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
             var phone = ExtractPhoneFromRequestBody(body);
             var response = await _dataStore.GetResponseForPhoneAsync(phone, cancellationToken).ConfigureAwait(false);
+            if (url.Contains("ebtCardService=N", StringComparison.OrdinalIgnoreCase))
+            {
+                response = MockCbmsGetAccountDetailsResponse.WithoutCardFields(response);
+            }
+
             return JsonResponse(response);
         }
 

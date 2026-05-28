@@ -43,11 +43,12 @@ internal sealed class CbmsHouseholdCache : ICbmsHouseholdCache
         _fetchFromCbms = fetchFromCbms;
     }
 
-    private string KeyFor(string normalizedPhone) => KeyPrefix + _hasher.Hash(normalizedPhone);
+    private string KeyFor(string normalizedPhone, bool includeCardService) =>
+        KeyPrefix + _hasher.Hash(normalizedPhone) + (includeCardService ? ":full" : ":shell");
 
     public async Task<GetAccountDetailsResponse?> GetAsync(string normalizedPhone, bool includeCardService, CancellationToken cancellationToken)
     {
-        var key = KeyFor(normalizedPhone);
+        var key = KeyFor(normalizedPhone, includeCardService);
         var hybridOptions = new HybridCacheEntryOptions
         {
             Expiration = _options.HardExpiration,
@@ -88,8 +89,12 @@ internal sealed class CbmsHouseholdCache : ICbmsHouseholdCache
 
         if (DateTimeOffset.UtcNow < envelope.SoftExpiryUtc) return response;
 
-        // Stale: return value immediately and trigger background refresh.
-        TriggerBackgroundRefresh(key, normalizedPhone);
+        // Stale: return value immediately and trigger background refresh (full card payload only).
+        if (includeCardService)
+        {
+            TriggerBackgroundRefresh(key, normalizedPhone);
+        }
+
         return response;
     }
 
@@ -161,7 +166,7 @@ internal sealed class CbmsHouseholdCache : ICbmsHouseholdCache
     public async Task SetAsync(string normalizedPhone, GetAccountDetailsResponse value, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(value);
-        var key = KeyFor(normalizedPhone);
+        var key = KeyFor(normalizedPhone, includeCardService: true);
         var now = DateTimeOffset.UtcNow;
         var envelope = new CbmsHouseholdCacheEnvelope(
             ResponseJson: SerializeResponse(value),
@@ -179,6 +184,12 @@ internal sealed class CbmsHouseholdCache : ICbmsHouseholdCache
                     LocalCacheExpiration = _options.LocalCacheExpiration,
                 },
                 cancellationToken: cancellationToken).ConfigureAwait(false);
+
+            // Write-through updates the full payload. Drop the shell entry so
+            // deferred dashboard reads (ebtCardService=N).
+            await _hybridCache.RemoveAsync(
+                KeyFor(normalizedPhone, includeCardService: false),
+                cancellationToken).ConfigureAwait(false);
         }
         catch (Exception ex)
         {
@@ -199,9 +210,9 @@ internal sealed class CbmsHouseholdCache : ICbmsHouseholdCache
         }
     }
 
-    public Task InvalidateAsync(string normalizedPhone, CancellationToken cancellationToken)
+    public async Task InvalidateAsync(string normalizedPhone, CancellationToken cancellationToken)
     {
-        var key = KeyFor(normalizedPhone);
-        return _hybridCache.RemoveAsync(key, cancellationToken).AsTask();
+        await _hybridCache.RemoveAsync(KeyFor(normalizedPhone, includeCardService: true), cancellationToken).ConfigureAwait(false);
+        await _hybridCache.RemoveAsync(KeyFor(normalizedPhone, includeCardService: false), cancellationToken).ConfigureAwait(false);
     }
 }
