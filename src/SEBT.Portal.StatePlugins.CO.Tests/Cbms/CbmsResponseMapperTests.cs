@@ -215,7 +215,6 @@ public class CbmsResponseMapperTests
     [InlineData("PG", ApplicationStatus.Pending)]
     [InlineData("PS", ApplicationStatus.Pending)]
     [InlineData("AM", ApplicationStatus.Unknown)]
-    [InlineData("DD", ApplicationStatus.Unknown)]
     [InlineData("XYZZY", ApplicationStatus.Unknown)]
     [InlineData("", ApplicationStatus.Unknown)]
     [InlineData(null, ApplicationStatus.Unknown)]
@@ -600,6 +599,127 @@ public class CbmsResponseMapperTests
 
         var pendingChild = app.Children.First(c => c.FirstName == "PendingChild");
         Assert.Equal(ApplicationStatus.Pending, pendingChild.Status);
+    }
+
+    [Fact]
+    public void MapToHouseholdData_excludes_denied_duplicate_from_cases_and_applications()
+    {
+        var duplicate = CreateMinimalStudent();
+        duplicate.StdFstNm = "Yoko";
+        duplicate.StdLstNm = "Alden";
+        duplicate.StdntEligSts = "DD";
+        duplicate.SebtAppSts = "DU";
+        duplicate.EligSrc = "PK";
+
+        var active = CreateMinimalStudent();
+        active.StdFstNm = "Yoko";
+        active.StdLstNm = "Alden";
+        active.StdntEligSts = "AP";
+        active.EligSrc = "DIRC";
+        active.SebtChldCwin = duplicate.SebtChldCwin;
+
+        var response = new GetAccountDetailsResponse
+        {
+            StdntEnrollDtls = [duplicate, active]
+        };
+        var piiVisibility = new PiiVisibility(IncludeAddress: false, IncludeEmail: false, IncludePhone: false);
+
+        var result = CbmsResponseMapper.MapToHouseholdData(response, "8185551234", piiVisibility);
+
+        var @case = Assert.Single(result.SummerEbtCases);
+        Assert.Equal("Yoko", @case.ChildFirstName);
+        Assert.Equal(ApplicationStatus.Approved, @case.ApplicationStatus);
+        Assert.Empty(result.Applications);
+    }
+
+    [Fact]
+    public void MapToHouseholdData_excludes_denied_duplicate_from_application_children()
+    {
+        var duplicate = CreateMinimalStudent();
+        duplicate.StdFstNm = "Yoko";
+        duplicate.StdLstNm = "Alden";
+        duplicate.StdntEligSts = "DD";
+        duplicate.SebtAppSts = "DU";
+        duplicate.EligSrc = "PK";
+        duplicate.SebtAppId = 1129264;
+
+        var denied = CreateMinimalStudent();
+        denied.StdFstNm = "Lucienne";
+        denied.StdLstNm = "Hayman";
+        denied.StdntEligSts = "DE";
+        denied.SebtAppSts = "PI";
+        denied.EligSrc = "PK";
+        denied.SebtAppId = 1129264;
+
+        var response = new GetAccountDetailsResponse
+        {
+            StdntEnrollDtls = [duplicate, denied]
+        };
+        var piiVisibility = new PiiVisibility(IncludeAddress: false, IncludeEmail: false, IncludePhone: false);
+
+        var result = CbmsResponseMapper.MapToHouseholdData(response, "8185551234", piiVisibility);
+
+        Assert.Empty(result.SummerEbtCases);
+        var app = Assert.Single(result.Applications);
+        var child = Assert.Single(app.Children);
+        Assert.Equal("Lucienne", child.FirstName);
+        Assert.Equal(ApplicationStatus.Denied, child.Status);
+    }
+
+    [Fact]
+    public void MapToHouseholdData_uses_first_actionable_row_for_household_metadata_when_leading_row_is_denied_duplicate()
+    {
+        var duplicate = CreateMinimalStudent();
+        duplicate.StdntEligSts = "DD";
+        duplicate.EligSrc = "PK";
+        duplicate.GurdFstNm = "Wrong";
+        duplicate.GurdLstNm = "Guardian";
+        duplicate.GurdEmailAddr = "wrong@example.org";
+
+        var actionable = CreateMinimalStudent();
+        actionable.GurdFstNm = "Della";
+        actionable.GurdLstNm = "MockAlden";
+        actionable.GurdEmailAddr = "della@example.org";
+        actionable.AddrLn1 = "475 TIMM WAY";
+        actionable.Cty = "LONGMONT";
+
+        var response = new GetAccountDetailsResponse
+        {
+            StdntEnrollDtls = [duplicate, actionable]
+        };
+        var piiVisibility = new PiiVisibility(IncludeAddress: true, IncludeEmail: true, IncludePhone: false);
+
+        var result = CbmsResponseMapper.MapToHouseholdData(response, "8185551234", piiVisibility);
+
+        Assert.NotNull(result.UserProfile);
+        Assert.Equal("Della", result.UserProfile.FirstName);
+        Assert.Equal("MockAlden", result.UserProfile.LastName);
+        Assert.Equal("della@example.org", result.Email);
+        Assert.NotNull(result.AddressOnFile);
+        Assert.Equal("475 TIMM WAY", result.AddressOnFile.StreetAddress1);
+    }
+
+    [Fact]
+    public void MapToHouseholdData_logs_when_excluding_denied_duplicate_rows()
+    {
+        var duplicate = CreateMinimalStudent();
+        duplicate.StdntEligSts = "DD";
+        duplicate.EligSrc = "PK";
+
+        var response = new GetAccountDetailsResponse
+        {
+            StdntEnrollDtls = [duplicate]
+        };
+        var piiVisibility = new PiiVisibility(IncludeAddress: false, IncludeEmail: false, IncludePhone: false);
+        var logger = new CapturingLogger();
+
+        var result = CbmsResponseMapper.MapToHouseholdData(response, "8185551234", piiVisibility, logger);
+
+        Assert.Empty(result.SummerEbtCases);
+        Assert.Empty(result.Applications);
+        var log = Assert.Single(logger.Entries);
+        Assert.Equal(LogLevel.Information, log.Level);
+        Assert.Contains("denied-duplicate", log.Message, StringComparison.OrdinalIgnoreCase);
     }
 
     private static GetAccountStudentDetail CreateMinimalStudent()

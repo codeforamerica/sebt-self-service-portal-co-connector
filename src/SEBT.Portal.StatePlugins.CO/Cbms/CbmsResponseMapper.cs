@@ -22,7 +22,21 @@ internal static class CbmsResponseMapper
         PiiVisibility piiVisibility,
         ILogger? logger = null)
     {
-        var students = response.StdntEnrollDtls ?? new List<GetAccountStudentDetail>();
+        // Denied-duplicate rows (stdntEligSts=DD) must never reach cases, applications, or household metadata.
+        var rawStudents = response.StdntEnrollDtls;
+        var students = rawStudents is null or { Count: 0 }
+            ? []
+            : rawStudents.Where(s => !CbmsCaseFilters.IsDeniedDuplicate(s)).ToList();
+
+        var excludedCount = (rawStudents?.Count ?? 0) - students.Count;
+        if (excludedCount > 0)
+        {
+            logger?.LogInformation(
+                "CBMS GetAccountDetails: excluded {ExcludedCount} denied-duplicate enrollment row(s) " +
+                "(stdntEligSts=DD) from household mapping.",
+                excludedCount);
+        }
+
         var first = students.FirstOrDefault();
 
         var household = new HouseholdData
