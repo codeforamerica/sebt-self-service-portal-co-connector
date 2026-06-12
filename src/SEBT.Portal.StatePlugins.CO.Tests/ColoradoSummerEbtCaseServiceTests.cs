@@ -158,6 +158,14 @@ public class ColoradoSummerEbtCaseServiceTests : IDisposable
 
         Assert.NotNull(result);
         Assert.NotEmpty(result.SummerEbtCases);
+        Assert.DoesNotContain(
+            result.Applications.SelectMany(a => a.Children),
+            c => c.FirstName == "Yoko" && c.LastName == "Alden");
+
+        var lucienne = Assert.Single(
+            result.Applications.SelectMany(a => a.Children),
+            c => c.FirstName == "Lucienne" && c.LastName == "Hayman");
+        Assert.Equal(ApplicationStatus.Denied, lucienne.Status);
     }
 
     [Fact]
