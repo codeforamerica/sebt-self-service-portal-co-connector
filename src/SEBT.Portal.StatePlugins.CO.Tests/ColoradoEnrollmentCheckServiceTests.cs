@@ -445,9 +445,12 @@ public class ColoradoEnrollmentCheckServiceTests
     [Fact]
     public void BuildCbmsRequests_ThreeChildren_AssignsOneBasedStdReqInd()
     {
+        // DOBs are deliberately non-transposable (day > 12) so this test stays focused on
+        // 1-based StdReqInd assignment and field pass-through. Transposition expansion (where
+        // one child yields two rows) is covered by the dedicated DC-500 tests below.
         var c1 = MakeRequest("Adela", "Ramsden", new DateOnly(2008, 3, 17));
-        var c2 = MakeRequest("Hettie", "HAINSWORTHh", new DateOnly(2008, 3, 12));
-        var c3 = MakeRequest("Test11", "Persona11", new DateOnly(2010, 6, 1));
+        var c2 = MakeRequest("Hettie", "HAINSWORTHh", new DateOnly(2008, 3, 22));
+        var c3 = MakeRequest("Test11", "Persona11", new DateOnly(2010, 6, 15));
         c3 = new ChildCheckRequest
         {
             CheckId = c3.CheckId,
@@ -470,12 +473,99 @@ public class ColoradoEnrollmentCheckServiceTests
         Assert.Equal("2", requests[1].StdReqInd);
         Assert.Equal("Hettie", requests[1].StdFirstName);
         Assert.Equal("HAINSWORTHh", requests[1].StdLastName);
-        Assert.Equal("2008-03-12", requests[1].StdDob);
+        Assert.Equal("2008-03-22", requests[1].StdDob);
 
         Assert.Equal("3", requests[2].StdReqInd);
         Assert.Equal("Test11", requests[2].StdFirstName);
         Assert.Equal("Persona11", requests[2].StdLastName);
-        Assert.Equal("2010-06-01", requests[2].StdDob);
+        Assert.Equal("2010-06-15", requests[2].StdDob);
         Assert.Equal("12345", requests[2].StdSchlCd);
+    }
+
+    // ---------------------------------------------------------------------------
+    // DC-500: Date transposition. When a child's DOB has a swappable month/day
+    // (the swap yields a *different* valid calendar date), we submit a second CBMS
+    // row for that child carrying the same StdReqInd but the month and day swapped.
+    // This catches guardians who mis-enter a transposable date (e.g. 04/08 vs 08/04).
+    // ---------------------------------------------------------------------------
+
+    [Theory]
+    [InlineData(2010, 12, 1, "2010-01-12")]  // Dec 1  -> Jan 12 (ticket example)
+    [InlineData(2008, 4, 8, "2008-08-04")]   // Apr 8  -> Aug 4  (Devora Robert)
+    [InlineData(2010, 6, 1, "2010-01-06")]   // Jun 1  -> Jan 6
+    [InlineData(2008, 3, 12, "2008-12-03")]  // Mar 12 -> Dec 3
+    [InlineData(2020, 11, 11, null)]         // month == day -> swap is a no-op
+    [InlineData(2008, 2, 13, null)]          // day 13 can't be a month
+    [InlineData(2008, 3, 17, null)]          // day 17 can't be a month
+    public void TryTransposeMonthAndDay_SwapsOnlyWhenResultIsValidAndDifferent(
+        int year, int month, int day, string? expected)
+    {
+        var result = ColoradoEnrollmentCheckService.TryTransposeMonthAndDay(new DateOnly(year, month, day));
+
+        if (expected is null)
+        {
+            Assert.Null(result);
+        }
+        else
+        {
+            Assert.Equal(
+                DateOnly.ParseExact(expected, "yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture),
+                result);
+        }
+    }
+
+    [Fact]
+    public void BuildCbmsRequests_TransposableDob_EmitsTwoRowsWithSameStdReqInd_EnteredThenTransposed()
+    {
+        var child = MakeRequest("Devora", "Robert", new DateOnly(2008, 4, 8));
+
+        var requests = ColoradoEnrollmentCheckService.BuildCbmsRequests(new List<ChildCheckRequest> { child });
+
+        Assert.Equal(2, requests.Count);
+        Assert.All(requests, r => Assert.Equal("1", r.StdReqInd));
+        Assert.All(requests, r => Assert.Equal("Devora", r.StdFirstName));
+        Assert.All(requests, r => Assert.Equal("Robert", r.StdLastName));
+        // Entered DOB first, transposed second.
+        Assert.Equal("2008-04-08", requests[0].StdDob);
+        Assert.Equal("2008-08-04", requests[1].StdDob);
+    }
+
+    [Fact]
+    public void BuildCbmsRequests_NonTransposableDob_EmitsSingleRow()
+    {
+        // Nov 11: swapping month/day yields the same date, so no second row.
+        var child = MakeRequest("Nora", "Vance", new DateOnly(2020, 11, 11));
+
+        var requests = ColoradoEnrollmentCheckService.BuildCbmsRequests(new List<ChildCheckRequest> { child });
+
+        var row = Assert.Single(requests);
+        Assert.Equal("1", row.StdReqInd);
+        Assert.Equal("2020-11-11", row.StdDob);
+    }
+
+    [Fact]
+    public void BuildCbmsRequests_MixedChildren_ExpandsOnlyTransposable_PreservingPerChildStdReqInd()
+    {
+        var transposable = MakeRequest("Devora", "Robert", new DateOnly(2008, 4, 8));    // 2 rows, StdReqInd "1"
+        var nonTransposable = MakeRequest("Nora", "Vance", new DateOnly(2020, 11, 11));  // 1 row,  StdReqInd "2"
+        var alsoTransposable = MakeRequest("Milo", "Quinn", new DateOnly(2010, 12, 1));  // 2 rows, StdReqInd "3"
+        var children = new List<ChildCheckRequest> { transposable, nonTransposable, alsoTransposable };
+
+        var requests = ColoradoEnrollmentCheckService.BuildCbmsRequests(children);
+
+        Assert.Equal(5, requests.Count);
+
+        var child1Rows = requests.Where(r => r.StdReqInd == "1").ToList();
+        Assert.Equal(2, child1Rows.Count);
+        Assert.Contains(child1Rows, r => r.StdDob == "2008-04-08");
+        Assert.Contains(child1Rows, r => r.StdDob == "2008-08-04");
+
+        var child2Row = Assert.Single(requests, r => r.StdReqInd == "2");
+        Assert.Equal("2020-11-11", child2Row.StdDob);
+
+        var child3Rows = requests.Where(r => r.StdReqInd == "3").ToList();
+        Assert.Equal(2, child3Rows.Count);
+        Assert.Contains(child3Rows, r => r.StdDob == "2010-12-01");
+        Assert.Contains(child3Rows, r => r.StdDob == "2010-01-12");
     }
 }
