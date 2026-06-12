@@ -85,8 +85,9 @@ public class ColoradoEnrollmentCheckService : ColoradoCbmsServiceBase, IEnrollme
         var indexToChild = BuildIndexToChildMap(request.Children);
 
         _logger.LogInformation(
-            "CBMS EnrollmentCheck: starting request for {ChildCount} child(ren) (POST /sebt/check-enrollment)",
-            cbmsRequests.Count);
+            "CBMS EnrollmentCheck: starting request for {ChildCount} child(ren), {RowCount} CBMS row(s) " +
+            "after date-transposition expansion (POST /sebt/check-enrollment)",
+            request.Children.Count, cbmsRequests.Count);
         var sw = Stopwatch.StartNew();
         CheckEnrollmentResponse? cbmsResponse;
         try
@@ -134,16 +135,60 @@ public class ColoradoEnrollmentCheckService : ColoradoCbmsServiceBase, IEnrollme
     /// </summary>
     internal static List<CbmsCheckEnrollmentRequest> BuildCbmsRequests(IList<ChildCheckRequest> children)
     {
-        return children
-            .Select((child, idx) => new CbmsCheckEnrollmentRequest
+        var requests = new List<CbmsCheckEnrollmentRequest>(children.Count);
+        for (var i = 0; i < children.Count; i++)
+        {
+            var child = children[i];
+            var stdReqInd = (i + 1).ToString(CultureInfo.InvariantCulture);
+
+            requests.Add(BuildRow(child, child.DateOfBirth, stdReqInd));
+
+            // When the DOB's month and day are transposable (the swap yields a different
+            // valid date), submit a second row under the SAME StdReqInd with month/day
+            // swapped. This catches guardians who mis-enter a transposable date (e.g.
+            // 04/08 vs 08/04). CBMS echoes the indicator back per submitted row, and
+            // CorrelateResults keeps the highest-confidence match for the child, so the
+            // correct candidate wins without the portal ever seeing the extra row.
+            if (TryTransposeMonthAndDay(child.DateOfBirth) is { } transposedDob)
             {
-                StdFirstName = child.FirstName,
-                StdLastName = child.LastName,
-                StdDob = child.DateOfBirth.ToString("yyyy-MM-dd"),
-                StdSchlCd = child.SchoolCode,
-                StdReqInd = (idx + 1).ToString(CultureInfo.InvariantCulture)
-            })
-            .ToList();
+                requests.Add(BuildRow(child, transposedDob, stdReqInd));
+            }
+        }
+
+        return requests;
+    }
+
+    /// <summary>
+    /// Builds a single CBMS check-enrollment row for a child against a specific DOB.
+    /// Name and school code pass through unchanged; only the DOB and the shared
+    /// <c>StdReqInd</c> vary across the rows emitted for one child.
+    /// </summary>
+    private static CbmsCheckEnrollmentRequest BuildRow(ChildCheckRequest child, DateOnly dob, string stdReqInd) =>
+        new()
+        {
+            StdFirstName = child.FirstName,
+            StdLastName = child.LastName,
+            StdDob = dob.ToString("yyyy-MM-dd"),
+            StdSchlCd = child.SchoolCode,
+            StdReqInd = stdReqInd
+        };
+
+    /// <summary>
+    /// Returns the month/day-swapped DOB when the swap yields a <em>different</em> valid
+    /// calendar date, otherwise <c>null</c>. The swap is only valid when the day can also
+    /// serve as a month (1-12); the original month (always 1-12) is in turn always a valid
+    /// day in any month, so no day-range check is needed. When month equals day the swap is
+    /// a no-op and we return <c>null</c> so no duplicate row is emitted.
+    /// </summary>
+    internal static DateOnly? TryTransposeMonthAndDay(DateOnly dob)
+    {
+        if (dob.Day > 12)
+        {
+            return null;
+        }
+
+        var transposed = new DateOnly(dob.Year, dob.Day, dob.Month);
+        return transposed == dob ? null : transposed;
     }
 
     /// <summary>
