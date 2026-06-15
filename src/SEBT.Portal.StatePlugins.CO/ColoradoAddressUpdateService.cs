@@ -154,13 +154,14 @@ public class ColoradoAddressUpdateService : ColoradoCbmsServiceBase, IAddressUpd
             if (students.Count == 0)
             {
                 return AddressUpdateResult.PolicyRejected(
-                    "HOUSEHOLD_NOT_FOUND",
-                    "CBMS get-account-details returned no enrollment rows for the household identifier used for lookup. " +
-                    "Confirm this environment (UAT vs production) and that the guardian phone on the SEBT account matches lookup normalization, same as household by phone.");
+                    "NO_ENROLLMENT_ROWS",
+                    "CBMS get-account-details returned a non-null account response with an empty enrollment list " +
+                    "(zero stdntEnrollDtls rows) for the household identifier used for lookup. The household resolved " +
+                    "but carries no SEBT enrollment records to update.");
             }
 
             return AddressUpdateResult.PolicyRejected(
-                "HOUSEHOLD_NOT_FOUND",
+                "NO_ACTIONABLE_ENROLLMENT",
                 $"CBMS returned {students.Count} enrollment row(s), but none had usable sebtChldId or sebtAppId after parsing. " +
                 CbmsGetAccountStudentDetailIds.FormatDiagnosticsHint(students[0]));
         }
