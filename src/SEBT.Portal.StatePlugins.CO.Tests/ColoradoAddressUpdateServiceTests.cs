@@ -348,8 +348,10 @@ public class ColoradoAddressUpdateServiceTests : IDisposable
     }
 
     [Fact]
-    public async Task UpdateAddressAsync_returns_policy_when_no_child_records()
+    public async Task UpdateAddressAsync_returns_no_enrollment_rows_when_response_has_empty_rows()
     {
+        // Non-null response carrying an empty stdntEnrollDtls array (distinct from the cache
+        // returning null). Differentiated so logs/metrics can tell this apart from a true not-found.
         var handler = new AddressUpdatePipelineMessageHandler(
             accountDetailsJson: """{"stdntEnrollDtls":[]}""");
 
@@ -363,7 +365,50 @@ public class ColoradoAddressUpdateServiceTests : IDisposable
 
         Assert.False(result.IsSuccess);
         Assert.True(result.IsPolicyRejection);
+        Assert.Equal("NO_ENROLLMENT_ROWS", result.ErrorCode);
+    }
+
+    [Fact]
+    public async Task UpdateAddressAsync_returns_household_not_found_when_cache_returns_null()
+    {
+        // Production negative-cache path: CbmsHouseholdCache collapses a missing account
+        // (or empty rows) to a null response, which maps to HOUSEHOLD_NOT_FOUND.
+        var fakeCache = Substitute.For<ICbmsHouseholdCache>();
+        fakeCache.GetAsync(Arg.Any<string>(), Arg.Any<bool>(), Arg.Any<CancellationToken>())
+            .Returns((GetAccountDetailsResponse?)null);
+
+        var service = BuildService(new AddressUpdatePipelineMessageHandler(), fakeCache);
+
+        var result = await service.UpdateAddressAsync(new AddressUpdateRequest
+        {
+            HouseholdIdentifierValue = "3035550199",
+            Address = ValidAddress()
+        });
+
+        Assert.False(result.IsSuccess);
+        Assert.True(result.IsPolicyRejection);
         Assert.Equal("HOUSEHOLD_NOT_FOUND", result.ErrorCode);
+    }
+
+    [Fact]
+    public async Task UpdateAddressAsync_returns_no_actionable_enrollment_when_rows_lack_usable_ids()
+    {
+        // Rows came back, but none carry a usable sebtChldId/sebtAppId, so no update payload
+        // can be built. This signals a CBMS data/mapping problem, distinct from not-found.
+        var handler = new AddressUpdatePipelineMessageHandler(
+            accountDetailsJson: """{"stdntEnrollDtls":[{"gurdFstNm":"G","gurdLstNm":"H"}]}""");
+
+        var service = BuildService(handler);
+
+        var result = await service.UpdateAddressAsync(new AddressUpdateRequest
+        {
+            HouseholdIdentifierValue = "3035550199",
+            Address = ValidAddress()
+        });
+
+        Assert.False(result.IsSuccess);
+        Assert.True(result.IsPolicyRejection);
+        Assert.Equal("NO_ACTIONABLE_ENROLLMENT", result.ErrorCode);
     }
 
     [Fact]
