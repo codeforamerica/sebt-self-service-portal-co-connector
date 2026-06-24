@@ -24,12 +24,16 @@ public class ColoradoEnrollmentCheckServiceTests
     [Fact]
     public async Task CheckEnrollmentAsync_WhenNoApiConfiguration_ThrowsInvalidOperationException()
     {
-        // Explicitly disable mock responses so the CI env var Cbms__UseMockResponses=true
-        // does not bypass the missing-credentials guard we're testing here.
+        // Explicitly blank out all three CBMS keys so the helper does not fall through to
+        // CI env vars (Cbms__ClientId, Cbms__ClientSecret, Cbms__UseMockResponses) that
+        // would either supply real credentials or enable mock mode — both suppress the
+        // missing-credentials guard we're testing here.
         var config = new ConfigurationBuilder()
             .AddInMemoryCollection(new Dictionary<string, string?>
             {
-                ["Cbms:UseMockResponses"] = "false"
+                ["Cbms:UseMockResponses"] = "false",
+                ["Cbms:ClientId"] = "",
+                ["Cbms:ClientSecret"] = ""
             })
             .Build();
         var service = new ColoradoEnrollmentCheckService(config);
