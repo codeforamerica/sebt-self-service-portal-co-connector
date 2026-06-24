@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Configuration;
 using SEBT.Portal.StatePlugins.CO.CbmsApi.Models;
 using SEBT.Portal.StatesPlugins.Interfaces.Models.EnrollmentCheck;
 
@@ -198,6 +199,100 @@ public class ColoradoEnrollmentCheckServiceTests
         var result = Assert.Single(results);
         Assert.Equal(EnrollmentStatus.Match, result.Status);
         Assert.Equal(90.5, result.MatchConfidence);
+    }
+
+    [Fact]
+    public void CorrelateResults_LoweredThreshold_ScoreNowAboveThreshold_Eligible_ReturnsMatch()
+    {
+        // A score of 85 is sub-threshold at the default (90) but clears a configured 80, so the
+        // score gate passes and the eligibility flag drives the final Match.
+        var child = MakeRequest("Test4", "Persona4", new DateOnly(2010, 1, 1));
+        var children = new List<ChildCheckRequest> { child };
+        var response = new CheckEnrollmentResponse
+        {
+            StdntDtls = new List<CheckEnrollmentStudentDetail>
+            {
+                MakeResponseRow("1", 85, "Y")
+            }
+        };
+
+        var results = ColoradoEnrollmentCheckService.CorrelateResults(
+            children, response, IndexMap(child), matchConfidenceThreshold: 80.0);
+
+        var result = Assert.Single(results);
+        Assert.Equal(EnrollmentStatus.Match, result.Status);
+        Assert.Equal(85, result.MatchConfidence);
+    }
+
+    [Fact]
+    public void CorrelateResults_RaisedThreshold_ScoreNowBelowThreshold_ReturnsNonMatch_ButPreservesScore()
+    {
+        // A score of 92 clears the default (90) but not a configured 95, so the score gate fails
+        // and the child resolves to NonMatch while the score is still surfaced.
+        var child = MakeRequest("Test5", "Persona5", new DateOnly(2010, 1, 1));
+        var children = new List<ChildCheckRequest> { child };
+        var response = new CheckEnrollmentResponse
+        {
+            StdntDtls = new List<CheckEnrollmentStudentDetail>
+            {
+                MakeResponseRow("1", 92, "Y")
+            }
+        };
+
+        var results = ColoradoEnrollmentCheckService.CorrelateResults(
+            children, response, IndexMap(child), matchConfidenceThreshold: 95.0);
+
+        var result = Assert.Single(results);
+        Assert.Equal(EnrollmentStatus.NonMatch, result.Status);
+        Assert.Equal(92, result.MatchConfidence);
+    }
+
+    [Fact]
+    public void ResolveMatchConfidenceThreshold_WhenConfigured_ReturnsConfiguredValue()
+    {
+        var configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["Cbms:MatchConfidenceThreshold"] = "80.5"
+            })
+            .Build();
+
+        var threshold = ColoradoEnrollmentCheckService.ResolveMatchConfidenceThreshold(configuration);
+
+        Assert.Equal(80.5, threshold);
+    }
+
+    [Fact]
+    public void ResolveMatchConfidenceThreshold_WhenConfigurationNull_ReturnsDefault()
+    {
+        var threshold = ColoradoEnrollmentCheckService.ResolveMatchConfidenceThreshold(null);
+
+        Assert.Equal(90.0, threshold);
+    }
+
+    [Fact]
+    public void ResolveMatchConfidenceThreshold_WhenKeyAbsent_ReturnsDefault()
+    {
+        var configuration = new ConfigurationBuilder().Build();
+
+        var threshold = ColoradoEnrollmentCheckService.ResolveMatchConfidenceThreshold(configuration);
+
+        Assert.Equal(90.0, threshold);
+    }
+
+    [Fact]
+    public void ResolveMatchConfidenceThreshold_WhenValueInvalid_ReturnsDefault()
+    {
+        var configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["Cbms:MatchConfidenceThreshold"] = "not-a-number"
+            })
+            .Build();
+
+        var threshold = ColoradoEnrollmentCheckService.ResolveMatchConfidenceThreshold(configuration);
+
+        Assert.Equal(90.0, threshold);
     }
 
     [Fact]

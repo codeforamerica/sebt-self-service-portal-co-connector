@@ -29,10 +29,18 @@ public class ColoradoEnrollmentCheckService : ColoradoCbmsServiceBase, IEnrollme
     private const string ApiKeyConfigKey = "COConnector:CbmsApiKey";
 
     /// <summary>
-    /// Strict greater-than threshold: a row's <c>mtchCnfd</c> must exceed this value
-    /// to be eligible for the eligibility-gated Match status. Below or equal -> NonMatch.
+    /// Default strict greater-than match-confidence threshold: a row's <c>mtchCnfd</c> must
+    /// exceed this value to be eligible for the eligibility-gated Match status. Below or equal
+    /// -> NonMatch. Overridable per environment via <see cref="MatchConfidenceThresholdConfigKey"/>
+    /// (see <see cref="ResolveMatchConfidenceThreshold"/>); editable at runtime via AWS AppConfig.
     /// </summary>
-    private const double MatchConfidenceThreshold = 90.0;
+    private const double DefaultMatchConfidenceThreshold = 90.0;
+
+    /// <summary>
+    /// Configuration key for the match-confidence threshold. Parsed as a double (invariant
+    /// culture); falls back to <see cref="DefaultMatchConfidenceThreshold"/> when unset or invalid.
+    /// </summary>
+    private const string MatchConfidenceThresholdConfigKey = "Cbms:MatchConfidenceThreshold";
 
     private readonly IConfiguration? _configuration;
     private readonly ILogger _logger;
@@ -51,6 +59,32 @@ public class ColoradoEnrollmentCheckService : ColoradoCbmsServiceBase, IEnrollme
     {
         _configuration = configuration;
         _logger = loggerFactory?.CreateLogger<ColoradoEnrollmentCheckService>() ?? NullLogger<ColoradoEnrollmentCheckService>.Instance;
+    }
+
+    /// <summary>
+    /// Resolves the match-confidence threshold from configuration
+    /// (<see cref="MatchConfidenceThresholdConfigKey"/>), falling back to
+    /// <see cref="DefaultMatchConfidenceThreshold"/> when the value is unset or not a valid number.
+    /// Parsed with the invariant culture so the threshold is environment-independent; an invalid
+    /// value is logged and ignored rather than failing the enrollment check.
+    /// </summary>
+    internal static double ResolveMatchConfidenceThreshold(IConfiguration? configuration, ILogger? logger = null)
+    {
+        var raw = configuration?[MatchConfidenceThresholdConfigKey];
+        if (string.IsNullOrWhiteSpace(raw))
+        {
+            return DefaultMatchConfidenceThreshold;
+        }
+
+        if (double.TryParse(raw, NumberStyles.Float, CultureInfo.InvariantCulture, out var threshold))
+        {
+            return threshold;
+        }
+
+        (logger ?? NullLogger.Instance).LogWarning(
+            "CBMS EnrollmentCheck: invalid {ConfigKey} value '{Raw}'; falling back to default threshold {Default}",
+            MatchConfidenceThresholdConfigKey, raw, DefaultMatchConfidenceThreshold);
+        return DefaultMatchConfidenceThreshold;
     }
 
     /// <inheritdoc />
@@ -119,7 +153,8 @@ public class ColoradoEnrollmentCheckService : ColoradoCbmsServiceBase, IEnrollme
             "CBMS EnrollmentCheck: completed in {ElapsedMs}ms, returned {DetailCount} student detail(s)",
             sw.ElapsedMilliseconds, cbmsResponse?.StdntDtls?.Count ?? 0);
 
-        var results = CorrelateResults(request.Children, cbmsResponse, indexToChild, _logger);
+        var matchConfidenceThreshold = ResolveMatchConfidenceThreshold(_configuration, _logger);
+        var results = CorrelateResults(request.Children, cbmsResponse, indexToChild, _logger, matchConfidenceThreshold);
 
         return new EnrollmentCheckResult
         {
@@ -211,15 +246,21 @@ public class ColoradoEnrollmentCheckService : ColoradoCbmsServiceBase, IEnrollme
     /// echoed <c>StdReqInd</c>. For each child:
     ///   - zero rows -> <see cref="EnrollmentStatus.NonMatch"/> with a "no matching record" message;
     ///   - 1+ rows -> highest <c>MtchCnfd</c> wins; status flows through <see cref="MapEnrollmentStatus"/>
-    ///     when above the <see cref="MatchConfidenceThreshold"/>, otherwise NonMatch.
+    ///     when above <paramref name="matchConfidenceThreshold"/>, otherwise NonMatch.
     /// <c>MatchConfidence</c> is always populated from the winning row, even on the sub-threshold
     /// NonMatch path, so logs and UI can surface the score we computed.
     /// </summary>
+    /// <param name="matchConfidenceThreshold">
+    /// Strict greater-than threshold a row's <c>MtchCnfd</c> must exceed to be eligible for Match;
+    /// defaults to <see cref="DefaultMatchConfidenceThreshold"/>. Callers resolve the configured
+    /// value via <see cref="ResolveMatchConfidenceThreshold"/>.
+    /// </param>
     internal static IList<ChildCheckResult> CorrelateResults(
         IList<ChildCheckRequest> requestChildren,
         CheckEnrollmentResponse? cbmsResponse,
         IReadOnlyDictionary<string, ChildCheckRequest> indexToChild,
-        ILogger? logger = null)
+        ILogger? logger = null,
+        double matchConfidenceThreshold = DefaultMatchConfidenceThreshold)
     {
         var details = cbmsResponse?.StdntDtls ?? new List<CheckEnrollmentStudentDetail>();
 
@@ -274,7 +315,7 @@ public class ColoradoEnrollmentCheckService : ColoradoCbmsServiceBase, IEnrollme
                 ? value?.ToString()
                 : null;
 
-            var aboveThreshold = (best.MtchCnfd ?? double.NegativeInfinity) > MatchConfidenceThreshold;
+            var aboveThreshold = (best.MtchCnfd ?? double.NegativeInfinity) > matchConfidenceThreshold;
             var status = aboveThreshold
                 ? MapEnrollmentStatus(sebtEligSts)
                 : EnrollmentStatus.NonMatch;
