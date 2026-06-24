@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Configuration;
 using SEBT.Portal.StatePlugins.CO.CbmsApi.Models;
 using SEBT.Portal.StatesPlugins.Interfaces.Models.EnrollmentCheck;
 
@@ -23,7 +24,15 @@ public class ColoradoEnrollmentCheckServiceTests
     [Fact]
     public async Task CheckEnrollmentAsync_WhenNoApiConfiguration_ThrowsInvalidOperationException()
     {
-        var service = new ColoradoEnrollmentCheckService();
+        // Explicitly disable mock responses so the CI env var Cbms__UseMockResponses=true
+        // does not bypass the missing-credentials guard we're testing here.
+        var config = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["Cbms:UseMockResponses"] = "false"
+            })
+            .Build();
+        var service = new ColoradoEnrollmentCheckService(config);
         var request = new EnrollmentCheckRequest
         {
             Children = new List<ChildCheckRequest>
