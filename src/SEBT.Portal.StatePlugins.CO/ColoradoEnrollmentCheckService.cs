@@ -318,7 +318,7 @@ public class ColoradoEnrollmentCheckService : ColoradoCbmsServiceBase, IEnrollme
 
     /// <summary>
     /// Returns a hardcoded result set when <c>Cbms:UseMockResponses</c> is enabled.
-    /// Children with the last name "MockDoe" (case-insensitive) are returned as Match
+    /// Children with the last name "Wibert" (case-insensitive) are returned as Match
     /// with 95% confidence; all others are NonMatch.
     /// Test persona: first name "Dimple", last name "Wibert".
     /// </summary>
