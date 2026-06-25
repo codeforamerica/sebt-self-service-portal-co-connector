@@ -424,6 +424,7 @@ public class CbmsResponseMapperTests
     [Theory]
     [InlineData("ACTIVE", CardStatus.Active)]
     [InlineData("LOST", CardStatus.Lost)]
+    [InlineData("LOST, AUTO REISSUE", CardStatus.Lost)]
     [InlineData("STOLEN", CardStatus.Stolen)]
     [InlineData("DAMAGED", CardStatus.Damaged)]
     [InlineData("STATUSED BY STATE, NO REISSUE", CardStatus.DeactivatedByState)]

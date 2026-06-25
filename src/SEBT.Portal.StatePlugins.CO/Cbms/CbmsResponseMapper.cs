@@ -209,6 +209,7 @@ internal static class CbmsResponseMapper
         {
             "ACTIVE" => CardStatus.Active,
             "LOST" => CardStatus.Lost,
+            "LOST, AUTO REISSUE" => CardStatus.Lost,
             "STOLEN" => CardStatus.Stolen,
             "DAMAGED" => CardStatus.Damaged,
             "STATUSED BY STATE, NO REISSUE" => CardStatus.DeactivatedByState,
