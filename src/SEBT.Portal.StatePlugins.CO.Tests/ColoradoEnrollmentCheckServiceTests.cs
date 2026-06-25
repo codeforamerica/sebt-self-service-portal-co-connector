@@ -259,19 +259,22 @@ public class ColoradoEnrollmentCheckServiceTests
         Assert.Equal(92, result.MatchConfidence);
     }
 
-    [Fact]
-    public void ResolveMatchConfidenceThreshold_WhenConfigured_ReturnsConfiguredValue()
+    [Theory]
+    [InlineData("80.5", 80.5)]
+    [InlineData("0", 0.0)]
+    [InlineData("100", 100.0)]
+    public void ResolveMatchConfidenceThreshold_WhenValueInRange_ReturnsValue(string value, double expected)
     {
         var configuration = new ConfigurationBuilder()
             .AddInMemoryCollection(new Dictionary<string, string?>
             {
-                ["Cbms:MatchConfidenceThreshold"] = "80.5"
+                ["Cbms:MatchConfidenceThreshold"] = value
             })
             .Build();
 
         var threshold = ColoradoEnrollmentCheckService.ResolveMatchConfidenceThreshold(configuration);
 
-        Assert.Equal(80.5, threshold);
+        Assert.Equal(expected, threshold);
     }
 
     [Fact]
@@ -292,19 +295,23 @@ public class ColoradoEnrollmentCheckServiceTests
         Assert.Equal(90.0, threshold);
     }
 
-    [Fact]
-    public void ResolveMatchConfidenceThreshold_WhenValueInvalid_ReturnsDefault()
+    [Theory]
+    [InlineData("not-a-number")]
+    [InlineData("-5")]
+    [InlineData("-0.1")]
+    [InlineData("100.1")]
+    [InlineData("900")]
+    public void ResolveMatchConfidenceThreshold_WhenValueInvalid_Throws(string value)
     {
         var configuration = new ConfigurationBuilder()
             .AddInMemoryCollection(new Dictionary<string, string?>
             {
-                ["Cbms:MatchConfidenceThreshold"] = "not-a-number"
+                ["Cbms:MatchConfidenceThreshold"] = value
             })
             .Build();
 
-        var threshold = ColoradoEnrollmentCheckService.ResolveMatchConfidenceThreshold(configuration);
-
-        Assert.Equal(90.0, threshold);
+        Assert.Throws<InvalidOperationException>(
+            () => ColoradoEnrollmentCheckService.ResolveMatchConfidenceThreshold(configuration));
     }
 
     [Fact]

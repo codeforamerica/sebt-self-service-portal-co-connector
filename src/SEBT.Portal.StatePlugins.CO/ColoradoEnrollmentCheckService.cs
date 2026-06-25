@@ -36,9 +36,15 @@ public class ColoradoEnrollmentCheckService : ColoradoCbmsServiceBase, IEnrollme
     /// </summary>
     private const double DefaultMatchConfidenceThreshold = 90.0;
 
+    /// <summary>Inclusive bounds for a valid threshold — CBMS <c>mtchCnfd</c> is a 0-100 percentage.</summary>
+    private const double MinMatchConfidenceThreshold = 0.0;
+    private const double MaxMatchConfidenceThreshold = 100.0;
+
     /// <summary>
-    /// Configuration key for the match-confidence threshold. Parsed as a double (invariant
-    /// culture); falls back to <see cref="DefaultMatchConfidenceThreshold"/> when unset or invalid.
+    /// Configuration key for the match-confidence threshold. Falls back to
+    /// <see cref="DefaultMatchConfidenceThreshold"/> when unset; a present value must be a number
+    /// within [<see cref="MinMatchConfidenceThreshold"/>, <see cref="MaxMatchConfidenceThreshold"/>]
+    /// or <see cref="ResolveMatchConfidenceThreshold"/> throws.
     /// </summary>
     private const string MatchConfidenceThresholdConfigKey = "Cbms:MatchConfidenceThreshold";
 
@@ -63,12 +69,17 @@ public class ColoradoEnrollmentCheckService : ColoradoCbmsServiceBase, IEnrollme
 
     /// <summary>
     /// Resolves the match-confidence threshold from configuration
-    /// (<see cref="MatchConfidenceThresholdConfigKey"/>), falling back to
-    /// <see cref="DefaultMatchConfidenceThreshold"/> when the value is unset or not a valid number.
-    /// Parsed with the invariant culture so the threshold is environment-independent; an invalid
-    /// value is logged and ignored rather than failing the enrollment check.
+    /// (<see cref="MatchConfidenceThresholdConfigKey"/>). Returns
+    /// <see cref="DefaultMatchConfidenceThreshold"/> when the value is unset. A present value must be
+    /// a number within [<see cref="MinMatchConfidenceThreshold"/>, <see cref="MaxMatchConfidenceThreshold"/>]
+    /// (the CBMS <c>mtchCnfd</c> domain); a non-numeric or out-of-range value is a configuration error
+    /// and throws, so a typo (e.g. a negative or oversized number) fails loudly instead of silently
+    /// skewing eligibility matching. Parsed with the invariant culture so it is environment-independent.
     /// </summary>
-    internal static double ResolveMatchConfidenceThreshold(IConfiguration? configuration, ILogger? logger = null)
+    /// <exception cref="InvalidOperationException">
+    /// The configured value is non-numeric or outside [0, 100].
+    /// </exception>
+    internal static double ResolveMatchConfidenceThreshold(IConfiguration? configuration)
     {
         var raw = configuration?[MatchConfidenceThresholdConfigKey];
         if (string.IsNullOrWhiteSpace(raw))
@@ -76,15 +87,16 @@ public class ColoradoEnrollmentCheckService : ColoradoCbmsServiceBase, IEnrollme
             return DefaultMatchConfidenceThreshold;
         }
 
-        if (double.TryParse(raw, NumberStyles.Float, CultureInfo.InvariantCulture, out var threshold))
+        if (!double.TryParse(raw, NumberStyles.Float, CultureInfo.InvariantCulture, out var threshold)
+            || threshold < MinMatchConfidenceThreshold
+            || threshold > MaxMatchConfidenceThreshold)
         {
-            return threshold;
+            throw new InvalidOperationException(
+                $"Invalid {MatchConfidenceThresholdConfigKey} value '{raw}'. Expected a number between " +
+                $"{MinMatchConfidenceThreshold} and {MaxMatchConfidenceThreshold}.");
         }
 
-        (logger ?? NullLogger.Instance).LogWarning(
-            "CBMS EnrollmentCheck: invalid {ConfigKey} value '{Raw}'; falling back to default threshold {Default}",
-            MatchConfidenceThresholdConfigKey, raw, DefaultMatchConfidenceThreshold);
-        return DefaultMatchConfidenceThreshold;
+        return threshold;
     }
 
     /// <inheritdoc />
@@ -114,6 +126,9 @@ public class ColoradoEnrollmentCheckService : ColoradoCbmsServiceBase, IEnrollme
         {
             return BuildMockResult(request.Children);
         }
+
+        // Validate the configured threshold up front so a misconfiguration fails before the CBMS call.
+        var matchConfidenceThreshold = ResolveMatchConfidenceThreshold(_configuration);
 
         var client = GetOrCreateClient(options);
 
@@ -158,7 +173,6 @@ public class ColoradoEnrollmentCheckService : ColoradoCbmsServiceBase, IEnrollme
             "CBMS EnrollmentCheck: completed in {ElapsedMs}ms, returned {DetailCount} student detail(s)",
             sw.ElapsedMilliseconds, cbmsResponse?.StdntDtls?.Count ?? 0);
 
-        var matchConfidenceThreshold = ResolveMatchConfidenceThreshold(_configuration, _logger);
         var results = CorrelateResults(request.Children, cbmsResponse, indexToChild, _logger, matchConfidenceThreshold);
 
         return new EnrollmentCheckResult
