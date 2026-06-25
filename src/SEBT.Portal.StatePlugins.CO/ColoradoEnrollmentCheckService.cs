@@ -110,6 +110,11 @@ public class ColoradoEnrollmentCheckService : ColoradoCbmsServiceBase, IEnrollme
                 "or Cbms__ClientId/Cbms__ClientSecret environment variables.");
         }
 
+        if (options.UseMockResponses)
+        {
+            return BuildMockResult(request.Children);
+        }
+
         var client = GetOrCreateClient(options);
 
         // Build the CBMS request rows tagged with a 1-based StdReqInd. CBMS echoes
@@ -351,4 +356,29 @@ public class ColoradoEnrollmentCheckService : ColoradoCbmsServiceBase, IEnrollme
         DateOnly.TryParseExact(stdDob, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var date)
             ? date
             : null;
+
+    /// <summary>
+    /// Returns a hardcoded result set when <c>Cbms:UseMockResponses</c> is enabled.
+    /// Children with the last name "Wibert" (case-insensitive) are returned as Match
+    /// with 95% confidence; all others are NonMatch.
+    /// Test persona: first name "Dimple", last name "Wibert".
+    /// </summary>
+    private static EnrollmentCheckResult BuildMockResult(IList<ChildCheckRequest> children)
+    {
+        var results = children.Select(child =>
+        {
+            var isMatch = child.LastName.Equals("Wibert", StringComparison.OrdinalIgnoreCase);
+            return new ChildCheckResult
+            {
+                CheckId = child.CheckId,
+                FirstName = child.FirstName,
+                LastName = child.LastName,
+                DateOfBirth = child.DateOfBirth,
+                Status = isMatch ? EnrollmentStatus.Match : EnrollmentStatus.NonMatch,
+                MatchConfidence = isMatch ? 95.0 : null
+            };
+        }).ToList();
+
+        return new EnrollmentCheckResult { Results = results };
+    }
 }
